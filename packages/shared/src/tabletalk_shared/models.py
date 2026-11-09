@@ -18,6 +18,7 @@ ShortText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1
 Answer = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
 Topic = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50)]
 Goal = Literal["Learn", "Share something I've learned", "Meet connections"]
+LEGACY_GOALS = {"Meet peers": "Meet connections"}
 
 
 class Enrollment(BaseModel):
@@ -37,6 +38,13 @@ class Enrollment(BaseModel):
     @classmethod
     def normalize_interests(cls, values: list[str]) -> list[str]:
         return list(dict.fromkeys(value.lower() for value in values))
+
+    @field_validator("goals", mode="before")
+    @classmethod
+    def migrate_legacy_goals(cls, values: list[str]) -> list[str]:
+        allowed = {"Learn", "Share something I've learned", "Meet connections"}
+        mapped = [LEGACY_GOALS.get(value, value) for value in values or []]
+        return [value for value in mapped if value in allowed] or ["Meet connections"]
 
     @field_validator("goals")
     @classmethod

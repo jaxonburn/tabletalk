@@ -2,7 +2,7 @@ import pytest
 from pydantic import ValidationError
 from tabletalk_api.seed import seed_attendees
 from tabletalk_matcher.matching import build_plan, explain_pair, group_sizes
-from tabletalk_shared.models import Attendee, Enrollment, Goal
+from tabletalk_shared.models import Attendee, Enrollment, Goal, MatchPlan
 
 
 @pytest.mark.parametrize("count", [2, 4, 5, 9, 13, 100])
@@ -70,6 +70,23 @@ def test_enrollment_normalizes_and_deduplicates_interests() -> None:
     data = seed_attendees()[0].model_dump(exclude={"id", "conference_id"})
     data["interests"] = [" Kubernetes ", "KUBERNETES", "Python"]
     assert Enrollment.model_validate(data).interests == ["kubernetes", "python"]
+
+
+def test_stored_attendees_and_plans_migrate_legacy_goals() -> None:
+    stored_attendee = seed_attendees()[0].model_dump(exclude={"focus_goal", "goal_answers"})
+    stored_attendee["goals"] = ["Meet peers"]
+
+    attendee = Attendee.model_validate(stored_attendee)
+    assert attendee.goals == ["Meet connections"]
+
+    plan = MatchPlan.model_validate(
+        {
+            "groups": [{"id": "group-1", "members": [stored_attendee], "reasons": []}],
+            "generated_at": "2026-11-01T12:00:00Z",
+            "attendee_count": 1,
+        }
+    )
+    assert plan.groups[0].members[0].goals == ["Meet connections"]
 
 
 @pytest.mark.parametrize(
