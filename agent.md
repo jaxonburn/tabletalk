@@ -31,8 +31,14 @@ integrations; Dash0 is the observability destination.
   idempotent and prevent overwriting a winning concurrent plan.
 - `infra/otel`: OTLP/HTTP Collector configurations. Local debug exporter by
   default; optional Compose overlay forwards traces, metrics, and logs to Dash0.
+- `compose.elasticsearch-cloud.yaml`: optional authenticated Elastic Cloud
+  connection; removes the local Elasticsearch service without changing hot reload.
+- `infra/radar`: deployment on Radar's provided `tabletalk` cluster, namespace
+  `team-tabletalk`. Production nginx frontend, single-writer API, matcher,
+  namespace-scoped Collector, and external Elasticsearch.
 
-No queues, Kubernetes, relational database, LLM, or vector model are required.
+No queues, Kubernetes, relational database, LLM, or vector model are required for
+local development. Kubernetes is the separate hosted hackathon deployment.
 
 ## Current matching behavior
 
@@ -63,6 +69,8 @@ if you rename these contracts.
 ## Entry points
 
 - `GET /health`: dependency readiness; excluded from HTTP tracing.
+- `GET /api/health`: public readiness alias reporting API/matcher release versions
+  for CI's hosted deployment verification.
 - `GET /api/conference`: conference details, enrolled attendees, completed plan.
 - `POST /api/enrollments`: validated enrollment, rejected after assignment.
 - `POST /api/demo/seed`: add missing fictional profiles; safe to repeat.
@@ -85,6 +93,42 @@ Frontend and Python source edits reload in Docker, including shared Python code.
 Dependency changes require updating the appropriate lockfile and rebuilding.
 CI mirrors these checks. Backend tests isolate Elasticsearch calls; use the live
 Compose stack to verify actual relevance, persistence, and trace propagation.
+
+The root `.env` selects Compose files with `COMPOSE_FILE`. Local Elasticsearch is
+the default (`compose.yaml`). For Elastic Cloud, select
+`compose.yaml:compose.elasticsearch-cloud.yaml` and set `ELASTICSEARCH_URL` to
+the HTTPS Elasticsearch endpoint and `ELASTICSEARCH_API_KEY` to its encoded key.
+Append `:compose.dash0.yaml` for Dash0 export. Explicit `-f` flags override this
+selection. Stop the old mode with `docker compose down` before switching; never
+remove its volume just to change modes. Local and hosted data remain separate.
+Both backends share one authenticated client factory; API keys require HTTPS.
+Elastic Serverless is detected at startup; never set its shard/replica settings
+or use the cluster-health API there. Readiness searches both application indices.
+
+## Live deployment and observability
+
+See `infra/radar/README.md` for bootstrap and safe Secret upload. Radar MCP calls
+must target only cluster `lTCjZBaR2Ss` (`tabletalk`), not other teams or the
+platform's `cnh` cluster. Never upgrade the platform Radar agent or assume host
+access is allowed. The team URL routes to Service `app:80`.
+
+Passing CI on `main` publishes SHA-tagged web/Python images and commits only
+generated Kustomize image tags. Argo CD deploys `infra/radar/deploy`; CI waits for
+the expected frontend/API/matcher versions and backend readiness. PRs do not deploy.
+Do not commit/push from an assistant session; the user publishes reviewed work.
+Do not apply placeholder `pending` image tags to the live cluster.
+
+Use the existing `.env` keys only through `scripts/radar_secrets.py` with an
+explicit, verified team kubeconfig. Never commit Secrets/kubeconfigs, bake keys
+into images, or send them through chat. The live demo is intentionally public
+and unauthenticated for fictional profiles only; real attendee use remains out
+of scope. Keep API at one replica/worker with `Recreate` rollout strategy.
+
+The live Collector adds cluster/environment/pod metadata and federates scoped
+workload metrics from existing Prometheus to Dash0. No Dash0 node agent,
+privileged pods, duplicate auto-instrumentation, or pod-log tailer. Filter Dash0
+by `k8s.cluster.name=tabletalk` and `deployment.environment.name=radar` to separate
+it from local Compose telemetry. AI investigations require cost/allowance consent.
 
 ## Feature branch workflow
 
@@ -124,7 +168,7 @@ when groups are published. Seed profiles are fictional. The browser remembers
 the current enrollment only for its page session; refreshing removes the
 personal table highlight, not the saved enrollment or group.
 
-Before any real/public deployment: authentication, organizer authorization,
+Before real-attendee or production deployment: authentication, organizer authorization,
 attendee consent and visibility controls, deletion/retention, Elasticsearch
 security, TLS, distributed enrollment/matching coordination, and deployment
 configuration. Don't treat the Vite development server as a production frontend.
