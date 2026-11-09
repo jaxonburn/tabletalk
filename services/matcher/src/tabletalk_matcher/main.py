@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Annotated
@@ -27,6 +28,7 @@ from tabletalk_shared.models import (
 )
 from tabletalk_shared.storage import (
     ATTENDEES_INDEX,
+    check_readiness,
     create_client,
     ensure_indices,
     list_attendees,
@@ -79,8 +81,12 @@ Client = Annotated[AsyncElasticsearch, Depends(get_client)]
 
 @app.get("/health")
 async def health(client: Client) -> dict[str, str]:
-    await client.cluster.health(wait_for_status="yellow", timeout="3s")
-    return {"status": "ok", "service": "tabletalk-matcher"}
+    await check_readiness(client)
+    return {
+        "status": "ok",
+        "service": "tabletalk-matcher",
+        "version": os.getenv("APP_VERSION", "development"),
+    }
 
 
 @app.post("/runs", response_model=MatchPlan)

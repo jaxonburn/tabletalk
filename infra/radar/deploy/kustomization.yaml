@@ -1,0 +1,29 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: team-tabletalk
+resources:
+  - web.yaml
+  - httproute.yaml
+  - api.yaml
+  - matcher.yaml
+  - collector-deployment.yaml
+  - collector-rbac.yaml
+images:
+  - name: tabletalk-web
+    newName: ghcr.io/jaxonburn/tabletalk-web
+    newTag: db1950ff5570acdf31cc85c520a77aafd47afa58
+  - name: tabletalk-python
+    newName: ghcr.io/jaxonburn/tabletalk-python
+    newTag: db1950ff5570acdf31cc85c520a77aafd47afa58
+configMapGenerator:
+  - name: tabletalk-runtime
+    literals:
+      - MATCHER_URL=http://matcher:8001
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_SERVICE_NAMESPACE=tabletalk
+      - OTEL_PYTHON_INSTRUMENTATION_ELASTICSEARCH_CAPTURE_SEARCH_QUERY=omit
+      - PYTHONPYCACHEPREFIX=/tmp/tabletalk-pycache
+      - PYTHONUNBUFFERED=1
+  - name: tabletalk-collector
+    files:
+      - config.yaml=collector.yaml

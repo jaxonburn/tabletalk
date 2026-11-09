@@ -1,0 +1,101 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: matcher
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tabletalk-matcher
+  template:
+    metadata:
+      labels:
+        app: tabletalk-matcher
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: matcher
+          image: tabletalk-python
+          command:
+            - uvicorn
+            - tabletalk_matcher.main:app
+            - --host
+            - 0.0.0.0
+            - --port
+            - "8001"
+            - --workers
+            - "1"
+            - --no-access-log
+          ports:
+            - name: http
+              containerPort: 8001
+          envFrom:
+            - configMapRef:
+                name: tabletalk-runtime
+            - secretRef:
+                name: tabletalk-elasticsearch
+          env:
+            - name: OTEL_SERVICE_NAME
+              value: tabletalk-matcher
+            - name: POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: deployment.environment.name=radar,k8s.cluster.name=tabletalk,k8s.namespace.name=team-tabletalk,k8s.pod.uid=$(POD_UID),k8s.pod.name=$(POD_NAME)
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            timeoutSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: http
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: matcher
+spec:
+  selector:
+    app: tabletalk-matcher
+  ports:
+    - name: http
+      port: 8001
+      targetPort: http

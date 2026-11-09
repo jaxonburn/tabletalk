@@ -96,11 +96,9 @@ class Attendee(Enrollment):
     def migrate_legacy_goals(cls, values: object) -> object:
         if values is None:
             return []
-        if not isinstance(values, list):
-            return values
-        return [
-            LEGACY_GOALS.get(value, value) if isinstance(value, str) else value for value in values
-        ]
+        if isinstance(values, list) and all(isinstance(value, str) for value in values):
+            return list(dict.fromkeys(LEGACY_GOALS.get(value, value) for value in values))
+        return values
 
 
 class MatchReason(BaseModel):

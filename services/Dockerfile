@@ -8,4 +8,6 @@ COPY pyproject.toml uv.lock ./
 COPY packages packages
 COPY services services
 RUN uv sync --locked --all-packages --no-dev
+ARG APP_VERSION=development
+ENV APP_VERSION=${APP_VERSION}
 EXPOSE 8000 8001

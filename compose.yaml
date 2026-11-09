@@ -6,6 +6,7 @@ x-python: &python
     dockerfile: services/Dockerfile
   environment: &python-environment
     ELASTICSEARCH_URL: http://elasticsearch:9200
+    ELASTICSEARCH_API_KEY: ""
     MATCHER_URL: http://matcher:8001
     OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
     OTEL_SERVICE_NAMESPACE: ${OTEL_SERVICE_NAMESPACE:-tabletalk}
@@ -35,6 +36,7 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+      target: development
     ports:
       - "127.0.0.1:${WEB_PORT:-5173}:5173"
     environment:

@@ -34,6 +34,7 @@ def configure_telemetry(app: FastAPI, service_name: str) -> Callable[[], None]:
         {
             "service.name": os.getenv("OTEL_SERVICE_NAME", service_name),
             "service.namespace": os.getenv("OTEL_SERVICE_NAMESPACE", "tabletalk"),
+            "service.version": os.getenv("APP_VERSION", "development"),
         }
     )
     traces = TracerProvider(resource=resource)
