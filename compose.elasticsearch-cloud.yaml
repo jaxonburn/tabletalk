@@ -1,0 +1,36 @@
+services:
+  elasticsearch: !reset null
+
+  api:
+    environment:
+      ELASTICSEARCH_URL: ${ELASTICSEARCH_URL:?Set ELASTICSEARCH_URL to your HTTPS Elasticsearch endpoint}
+      ELASTICSEARCH_API_KEY: ${ELASTICSEARCH_API_KEY:?Set ELASTICSEARCH_API_KEY to your encoded Elasticsearch API key}
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=10)"
+      interval: 10s
+      timeout: 11s
+    depends_on: !override
+      otel-collector:
+        condition: service_started
+      matcher:
+        condition: service_healthy
+
+  matcher:
+    environment:
+      ELASTICSEARCH_URL: ${ELASTICSEARCH_URL:?Set ELASTICSEARCH_URL to your HTTPS Elasticsearch endpoint}
+      ELASTICSEARCH_API_KEY: ${ELASTICSEARCH_API_KEY:?Set ELASTICSEARCH_API_KEY to your encoded Elasticsearch API key}
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8001/health', timeout=10)"
+      interval: 10s
+      timeout: 11s
+    depends_on: !override
+      otel-collector:
+        condition: service_started

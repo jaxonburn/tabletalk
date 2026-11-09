@@ -40,6 +40,44 @@ def test_enrollment_stores_validated_profile(api: tuple[TestClient, main.Service
     services.elasticsearch.create.assert_awaited_once()
 
 
+def test_public_readiness_identifies_both_backend_revisions(
+    api: tuple[TestClient, main.Services], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, services = api
+    monkeypatch.setenv("APP_VERSION", "api-revision")
+    search = AsyncMock()
+    monkeypatch.setattr(services.elasticsearch, "search", search)
+    assert isinstance(services.matcher.request, AsyncMock)
+    services.matcher.request.return_value = httpx.Response(
+        200,
+        json={"status": "ok", "version": "matcher-revision"},
+        request=httpx.Request("GET", "http://matcher:8001/health"),
+    )
+    response = client.get("/api/health")
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "ok",
+        "service": "tabletalk-api",
+        "version": "api-revision",
+        "matcher_version": "matcher-revision",
+    }
+    search.assert_awaited_once()
+
+
+@pytest.mark.parametrize("goals", [[], None, ["Meet peers"], ["Learn", "Unknown goal"]])
+def test_new_enrollment_does_not_use_stored_profile_migration(
+    api: tuple[TestClient, main.Services], goals: list[str] | None
+) -> None:
+    client, services = api
+    data = seed_attendees()[0].model_dump(
+        exclude={"id", "conference_id", "focus_goal", "goal_answers"}
+    )
+    response = client.post("/api/enrollments", json=data | {"goals": goals})
+    assert response.status_code == 422
+    assert isinstance(services.elasticsearch.create, AsyncMock)
+    services.elasticsearch.create.assert_not_awaited()
+
+
 def test_completed_plan_closes_enrollment(
     api: tuple[TestClient, main.Services], monkeypatch: pytest.MonkeyPatch
 ) -> None:

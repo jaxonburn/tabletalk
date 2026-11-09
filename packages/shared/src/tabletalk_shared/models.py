@@ -18,7 +18,14 @@ ShortText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1
 Answer = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
 Topic = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50)]
 Goal = Literal["Learn", "Share something I've learned", "Meet connections"]
-LEGACY_GOALS = {"Meet peers": "Meet connections"}
+LEGACY_GOALS = {
+    "Meet peers": "Meet connections",
+    "Find a cofounder": "Meet connections",
+    "Hire": "Meet connections",
+    "Get hired": "Meet connections",
+    "Sell / partner": "Meet connections",
+    "Invest": "Meet connections",
+}
 
 
 class Enrollment(BaseModel):
@@ -38,13 +45,6 @@ class Enrollment(BaseModel):
     @classmethod
     def normalize_interests(cls, values: list[str]) -> list[str]:
         return list(dict.fromkeys(value.lower() for value in values))
-
-    @field_validator("goals", mode="before")
-    @classmethod
-    def migrate_legacy_goals(cls, values: list[str]) -> list[str]:
-        allowed = {"Learn", "Share something I've learned", "Meet connections"}
-        mapped = [LEGACY_GOALS.get(value, value) for value in values or []]
-        return [value for value in mapped if value in allowed] or ["Meet connections"]
 
     @field_validator("goals")
     @classmethod
@@ -74,6 +74,16 @@ class Enrollment(BaseModel):
 class Attendee(Enrollment):
     id: str
     conference_id: str = CONFERENCE_ID
+    goals: list[Goal] = Field(default_factory=list, max_length=3)
+
+    @field_validator("goals", mode="before")
+    @classmethod
+    def migrate_legacy_goals(cls, values: object) -> object:
+        if values is None:
+            return []
+        if isinstance(values, list) and all(isinstance(value, str) for value in values):
+            return list(dict.fromkeys(LEGACY_GOALS.get(value, value) for value in values))
+        return values
 
 
 class MatchReason(BaseModel):

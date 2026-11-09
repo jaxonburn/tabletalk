@@ -1,0 +1,95 @@
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+  prometheus/cluster:
+    config:
+      scrape_configs:
+        - job_name: tabletalk-cluster
+          scrape_interval: 30s
+          scrape_timeout: 10s
+          metrics_path: /federate
+          honor_labels: true
+          honor_timestamps: false
+          params:
+            match[]:
+              - '{namespace="team-tabletalk",container!="",container!="POD",__name__=~"container_cpu_usage_seconds_total|container_memory_working_set_bytes"}'
+              - '{namespace="team-tabletalk",__name__=~"kube_pod_status_ready|kube_pod_container_status_restarts_total|kube_pod_container_resource_requests|kube_pod_container_resource_limits|kube_deployment_spec_replicas|kube_deployment_status_replicas_available"}'
+          static_configs:
+            - targets: ["prometheus-server.monitoring.svc.cluster.local:80"]
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 192
+    spike_limit_mib: 48
+  transform/k8s:
+    error_mode: propagate
+    metric_statements:
+      - context: datapoint
+        statements:
+          - set(resource.attributes["k8s.namespace.name"], datapoint.attributes["namespace"]) where datapoint.attributes["namespace"] != nil
+          - set(resource.attributes["k8s.pod.name"], datapoint.attributes["pod"]) where datapoint.attributes["pod"] != nil
+          - set(resource.attributes["k8s.container.name"], datapoint.attributes["container"]) where datapoint.attributes["container"] != nil
+          - set(resource.attributes["k8s.deployment.name"], datapoint.attributes["deployment"]) where datapoint.attributes["deployment"] != nil
+  k8sattributes:
+    auth_type: serviceAccount
+    filter:
+      namespace: team-tabletalk
+    extract:
+      metadata:
+        - k8s.namespace.name
+        - k8s.pod.name
+        - k8s.pod.uid
+        - k8s.deployment.name
+        - k8s.node.name
+    pod_association:
+      - sources:
+          - from: resource_attribute
+            name: k8s.pod.uid
+      - sources:
+          - from: resource_attribute
+            name: k8s.pod.name
+          - from: resource_attribute
+            name: k8s.namespace.name
+      - sources:
+          - from: connection
+  resource/cluster:
+    attributes:
+      - key: k8s.cluster.name
+        value: tabletalk
+        action: upsert
+      - key: deployment.environment.name
+        value: radar
+        action: upsert
+  batch:
+    timeout: 5s
+exporters:
+  otlphttp/dash0:
+    endpoint: ${env:DASH0_ENDPOINT}
+    headers:
+      Authorization: "Bearer ${env:DASH0_AUTH_TOKEN}"
+      Dash0-Dataset: ${env:DASH0_DATASET}
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, k8sattributes, resource/cluster, batch]
+      exporters: [otlphttp/dash0]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, k8sattributes, resource/cluster, batch]
+      exporters: [otlphttp/dash0]
+    metrics/app:
+      receivers: [otlp]
+      processors: [memory_limiter, k8sattributes, resource/cluster, batch]
+      exporters: [otlphttp/dash0]
+    metrics/cluster:
+      receivers: [prometheus/cluster]
+      processors:
+        [memory_limiter, transform/k8s, k8sattributes, resource/cluster, batch]
+      exporters: [otlphttp/dash0]

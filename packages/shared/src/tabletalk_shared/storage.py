@@ -1,6 +1,7 @@
 import os
 from collections.abc import AsyncIterator
 from typing import Any
+from urllib.parse import urlsplit
 
 from elasticsearch import AsyncElasticsearch, BadRequestError, ConflictError, NotFoundError
 from elasticsearch.helpers import async_scan
@@ -19,8 +20,13 @@ PLAN_ID = f"{CONFERENCE_ID}:{LUNCH_SLOT}"
 
 
 def create_client() -> AsyncElasticsearch:
+    url = os.getenv("ELASTICSEARCH_URL", "http://localhost:9200")
+    api_key = os.getenv("ELASTICSEARCH_API_KEY") or None
+    if api_key and urlsplit(url).scheme != "https":
+        raise ValueError("ELASTICSEARCH_URL must use HTTPS when ELASTICSEARCH_API_KEY is set.")
     return AsyncElasticsearch(
-        os.getenv("ELASTICSEARCH_URL", "http://localhost:9200"),
+        url,
+        api_key=api_key,
         request_timeout=10,
         max_retries=2,
         retry_on_timeout=True,
@@ -28,6 +34,8 @@ def create_client() -> AsyncElasticsearch:
 
 
 async def ensure_indices(client: AsyncElasticsearch) -> None:
+    info = await client.info()
+    serverless = info["version"].get("build_flavor") == "serverless"
     mappings: dict[str, dict[str, Any]] = {
         ATTENDEES_INDEX: {
             "dynamic": "strict",
@@ -60,7 +68,7 @@ async def ensure_indices(client: AsyncElasticsearch) -> None:
             await client.indices.create(
                 index=index,
                 mappings=mapping,
-                settings={"number_of_shards": 1, "number_of_replicas": 0},
+                settings=None if serverless else {"number_of_shards": 1, "number_of_replicas": 0},
             )
         except BadRequestError as error:
             # Add fields to existing indexes without resetting saved profiles or plans.
@@ -71,6 +79,12 @@ async def ensure_indices(client: AsyncElasticsearch) -> None:
                 await client.indices.put_mapping(index=index, properties=mapping["properties"])
                 continue
             raise
+
+
+async def check_readiness(client: AsyncElasticsearch) -> None:
+    await client.search(
+        index=[ATTENDEES_INDEX, PLANS_INDEX], size=0, allow_partial_search_results=False
+    )
 
 
 def conference_filter() -> list[dict[str, Any]]:

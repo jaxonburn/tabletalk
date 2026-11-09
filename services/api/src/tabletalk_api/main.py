@@ -20,6 +20,7 @@ from tabletalk_shared.models import (
 )
 from tabletalk_shared.storage import (
     ATTENDEES_INDEX,
+    check_readiness,
     create_client,
     ensure_indices,
     list_attendees,
@@ -75,11 +76,17 @@ Dependencies = Annotated[Services, Depends(get_services)]
 
 
 @app.get("/health")
-async def health(services: Dependencies) -> dict[str, str]:
-    await services.elasticsearch.cluster.health(wait_for_status="yellow", timeout="3s")
+@app.get("/api/health")
+async def health(services: Dependencies) -> dict[str, str | None]:
+    await check_readiness(services.elasticsearch)
     response = await call_matcher(services, "GET", "/health")
     response.raise_for_status()
-    return {"status": "ok", "service": "tabletalk-api"}
+    return {
+        "status": "ok",
+        "service": "tabletalk-api",
+        "version": os.getenv("APP_VERSION", "development"),
+        "matcher_version": response.json().get("version"),
+    }
 
 
 @app.get("/api/conference", response_model=ConferenceState)

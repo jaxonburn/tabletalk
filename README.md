@@ -24,7 +24,8 @@ app, and Gitar for reviewing the work as we build.
 
 ## Pull up a chair
 
-You'll need Docker with Compose. Give Docker at least **4 GB of memory**.
+You'll need Docker with Compose **2.24.4 or newer**. Give Docker at least
+**4 GB of memory** when using local Elasticsearch.
 
 ```bash
 docker compose up --build -d
@@ -64,6 +65,54 @@ docker compose down --volumes
 That command deletes this Compose project's saved demo data. Don't use it on a
 stack whose data you want to keep.
 
+### Local Elasticsearch or Elastic Cloud
+
+The root `.env` selects which Compose files to use. No `.env` means the default
+local Elasticsearch container. Copy `.env.example` if you don't already have one;
+don't overwrite an existing file containing credentials.
+
+| `COMPOSE_FILE` in `.env` | Elasticsearch | Telemetry |
+| --- | --- | --- |
+| `compose.yaml` | Local container | Local summaries |
+| `compose.yaml:compose.elasticsearch-cloud.yaml` | Elastic Cloud | Local summaries |
+| `compose.yaml:compose.dash0.yaml` | Local container | Dash0 |
+| `compose.yaml:compose.elasticsearch-cloud.yaml:compose.dash0.yaml` | Elastic Cloud | Dash0 |
+
+For cloud mode, also set:
+
+```dotenv
+ELASTICSEARCH_URL=https://your-elasticsearch-endpoint:443
+ELASTICSEARCH_API_KEY=your-encoded-elasticsearch-api-key
+```
+
+Use the Elasticsearch endpoint, not Kibana or a Cloud ID. Use an Elasticsearch
+API key's encoded value without an `ApiKey` prefix, not an Elastic Cloud
+management key. For an Elastic Cloud Hosted deployment, grant cluster `monitor`
+and index `manage`, `read`, and `write` on `tabletalk-attendees-v1` and
+`tabletalk-plans-v1`. TLS verification stays enabled.
+
+Elastic Cloud Serverless is also supported. Use a project API key with index
+management and document read/write permissions. Startup detects Serverless and
+leaves shard/replica settings to Elastic; readiness searches the application
+indices instead of using the unavailable cluster-health API.
+
+The same command starts either mode:
+
+```bash
+docker compose up --build -d
+```
+
+Cloud mode removes the local Elasticsearch service and its startup dependencies.
+Only the API and matcher receive its credentials. Local mode ignores cloud
+credentials, even if they remain in `.env`. Hot reload works in both modes.
+Explicit `-f` flags override `COMPOSE_FILE`, so include the cloud overlay if using
+those flags. The `:` file separator above is for macOS/Linux; Windows uses `;`.
+
+**Switching modes:** run `docker compose down` with the old selection first,
+then update `.env` and start again. Don't add `--volumes`: each database keeps
+its own attendees and plans, and data is not automatically migrated. In cloud
+mode, `down --volumes` does not reset or delete cloud data.
+
 ## How the pieces fit
 
 ```text
@@ -99,17 +148,30 @@ key is required. Requests propagate trace context from the API to the matching
 service and Elasticsearch. Custom spans and counters cover enrollment and group
 generation; HTTP instrumentation supplies request duration metrics.
 
-To export to Dash0, copy `.env.example` to `.env`, fill in your **OTLP/HTTP base
-endpoint**, auth token, and dataset, then run:
+To export to Dash0, add `compose.dash0.yaml` to `COMPOSE_FILE` as shown above,
+and fill in your **OTLP/HTTP base endpoint**, auth token, and dataset in `.env`.
+Then run:
 
 ```bash
-docker compose -f compose.yaml -f compose.dash0.yaml up --build -d
+docker compose up --build -d
 ```
 
 Credentials stay in the Collector, never in the browser. Search query capture is
 disabled, and custom telemetry records counts rather than enrollment answers.
 Browser real-user monitoring, dashboards, and an SLO are follow-up work—not
 implemented yet.
+
+## Live hackathon deployment
+
+Radar provides our Kubernetes cluster at **https://tabletalk.cnh.radarhq.io**.
+The deployment files, safe Secret upload, Dash0 live-workload telemetry, and
+one-time Argo CD setup are documented in [`infra/radar/README.md`](infra/radar/README.md).
+After setup, passing CI on `main` publishes images and updates GitOps; Argo CD
+deploys them and CI checks the live version. PRs validate without deploying.
+Compose remains the local development workflow.
+
+The live demo is intentionally open for **fictional profiles only**, with no
+authentication. It must not be used for real attendee data.
 
 ## Working on the repo
 
@@ -119,6 +181,7 @@ services/api/        Public FastAPI enrollment / organizer API
 services/matcher/    Internal FastAPI matching API
 packages/shared/    Python contracts, Elasticsearch helpers, telemetry
 infra/otel/         Local and Dash0 Collector configurations
+infra/radar/        Provided cluster, GitOps, and live Dash0 configuration
 tests/              Backend behavior tests
 .gitar/review/      Project-specific Gitar review guidance
 node_modules/       npm workspace dependencies (generated, ignored by Git)
@@ -173,9 +236,10 @@ instance**. There is no authentication or authorization. Elasticsearch security
 is disabled for development, published ports bind to localhost, and internal
 service/Collector ports are not published.
 
-Use fictional profiles. Don't expose this stack publicly or collect real attendee
-data until authentication, organizer permissions, consent, deletion, and data
-retention are implemented. The API intentionally runs a single worker; scaling
-requires distributed coordination for enrollment and matching.
+Don't expose the local development ports publicly. The hosted demo is deliberately
+open for fictional profiles only; don't collect real attendee data until
+authentication, organizer permissions, consent, deletion, and data retention are
+implemented. The API intentionally runs a single worker; scaling requires
+distributed coordination for enrollment and matching.
 
 Less awkward networking. More good conversations.
