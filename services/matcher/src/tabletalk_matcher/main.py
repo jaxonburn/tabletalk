@@ -6,7 +6,8 @@ from contextlib import asynccontextmanager
 from typing import Annotated
 
 import httpx
-from elasticsearch import AsyncElasticsearch
+from elastic_transport import TransportError
+from elasticsearch import ApiError, AsyncElasticsearch
 from fastapi import Depends, FastAPI, HTTPException, Request
 from opentelemetry import metrics, trace
 from tabletalk_shared.llm import (
@@ -102,13 +103,27 @@ async def compute_run(request: RunRequest, client: Client, http_request: Request
     embedder: Embedder | None = getattr(http_request.app.state, "embedder", None)
     vectors: dict[str, dict[str, list[float]]] = {}
     retrieval = "bm25"
+    keyword_attendees = [attendee.model_copy(update={"topic_tags": []}) for attendee in attendees]
+    # Tags saved by earlier semantic runs must not leak into a keyword-only run.
+    attendees = keyword_attendees
     if request.use_semantic and (embedder is not None or llm is not None):
-        attendees, enrichment = await enrich(client, attendees, embedder=embedder, llm=llm)
-        vectors, retrieval = enrichment.vectors, enrichment.retrieval
-    else:
-        # Tags saved by earlier semantic runs must not leak into a keyword-only run.
-        attendees = [attendee.model_copy(update={"topic_tags": []}) for attendee in attendees]
-    affinity = await elasticsearch_affinity(client, attendees, vectors)
+        try:
+            attendees, enrichment = await enrich(
+                client, keyword_attendees, embedder=embedder, llm=llm
+            )
+            vectors, retrieval = enrichment.vectors, enrichment.retrieval
+        except (ApiError, TransportError) as error:
+            # Hosted clusters can differ (privileges, Serverless features): keep BM25.
+            logger.warning("Enrichment storage failed (%s); using BM25 only.", type(error).__name__)
+            attendees = keyword_attendees
+    try:
+        affinity = await elasticsearch_affinity(client, attendees, vectors)
+    except (ApiError, TransportError) as error:
+        if not vectors:
+            raise
+        logger.warning("Vector search failed (%s); using BM25 only.", type(error).__name__)
+        retrieval = retrieval.replace("+vectors", "")
+        affinity = await elasticsearch_affinity(client, attendees, None)
     try:
         plan = build_plan(
             attendees,

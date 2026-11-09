@@ -63,14 +63,25 @@ additional internal endpoints. Public access was explicitly chosen for this demo
    DASH0_ENDPOINT=https://your-dash0-otlp-http-ingress
    DASH0_AUTH_TOKEN=your-ingestion-token
    DASH0_DATASET=default
+   # Optional, but strongly recommended: protects the public host view.
+   HOST_TOKEN=a-long-random-string
+   # Optional AI features (notes, personas, topic tags, semantic matching, judge).
+   OPENAI_API_KEY=your-openai-project-key
    ```
+
+   Generate a host token with `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`.
+   For OpenAI, use a **project** key with a monthly budget limit. The non-secret
+   AI settings (`LLM_PROVIDER`, `LLM_MODEL`, `LLM_REASONING_EFFORT`,
+   `EMBEDDING_MODEL`) are committed in `deploy/kustomization.yaml`'s
+   `tabletalk-runtime` ConfigMap, not in `.env`.
 
    Use an Elasticsearch data API key, not an Elastic Cloud management key.
    In Serverless, use a project API key with permission to manage our indices
    and read/write their documents. In Hosted, grant cluster `monitor` for startup's
    deployment detection and index `manage`, `read`, and `write` on
-   `tabletalk-attendees-v1` and `tabletalk-plans-v1`. Never add keys to browser
-   variables.
+   `tabletalk-attendees-v1`, `tabletalk-plans-v1`, `tabletalk-events-v1`,
+   `tabletalk-runs-v1`, and `tabletalk-tokens-v1` (or the pattern `tabletalk-*`). Startup creates all five, so a key limited to the first two fails
+   with 403. Never add keys to browser variables.
 
 4. Upload keys safely from the repo root:
 
@@ -80,10 +91,25 @@ additional internal endpoints. Public access was explicitly chosen for this demo
 
    This verifies the kubeconfig targets `https://tabletalk.vc.cnh.radarhq.io`,
    then sends credentials to Kubernetes over stdin without printing them or
-   writing a generated Secret manifest. `tabletalk-elasticsearch` is available
-   only to API/matcher; `tabletalk-dash0` only to the Collector. Secrets are not
-   stored in Git or GitHub Actions. Kubernetes Secrets are not a substitute for
-   encrypted storage and access control.
+   writing a generated Secret manifest. Each Secret goes only to the pods that
+   need it:
+
+   | Secret | Contents | Mounted by |
+   | --- | --- | --- |
+   | `tabletalk-elasticsearch` | Elasticsearch URL and key | API, matcher |
+   | `tabletalk-dash0` | Dash0 endpoint, token, dataset | Collector |
+   | `tabletalk-llm` (optional) | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | API, matcher |
+   | `tabletalk-host` (optional) | `HOST_TOKEN` | API |
+
+   - **Optional Secrets:** uploaded only with the keys that are set, and mounted
+     with `optional: true`, so pods start without them.
+   - **Without an AI key:** the host view shows AI as unavailable, and matching
+     uses templates and BM25.
+   - **Without a host token:** the script warns that the host view is open.
+
+   Secrets are not stored in Git or GitHub Actions; CI never needs the AI key,
+   because its quality check runs offline. Kubernetes Secrets are not a substitute
+   for encrypted storage and access control.
 
 5. Publish this feature through a reviewed PR into `main`. The CI deploy job
    needs GitHub Actions write permission for repository contents and packages.
@@ -156,7 +182,8 @@ out of the root `.env`'s `COMPOSE_FILE`, stop the old Compose selection first,
 then restart it if needed. Local debug telemetry still works. Don't replace the
 in-cluster OTLP endpoint with the public Dash0 endpoint in API/matcher.
 
-After rotating credentials, rerun the Secret upload and restart consumers:
+After rotating credentials (including the OpenAI key or `HOST_TOKEN`), rerun the
+Secret upload and restart consumers:
 
 ```bash
 kubectl --kubeconfig ~/cnh-kubeconfig -n team-tabletalk rollout restart deployment/api deployment/matcher deployment/otel-collector

@@ -24,6 +24,13 @@ configMapGenerator:
       - OTEL_PYTHON_INSTRUMENTATION_ELASTICSEARCH_CAPTURE_SEARCH_QUERY=omit
       - PYTHONPYCACHEPREFIX=/tmp/tabletalk-pycache
       - PYTHONUNBUFFERED=1
+      # AI settings (not secrets). Keys come from the optional tabletalk-llm Secret;
+      # without them the host view reports AI as unavailable and uses templates/BM25.
+      - LLM_PROVIDER=openai
+      - LLM_MODEL=gpt-5.4-mini
+      - LLM_REASONING_EFFORT=low
+      - EMBEDDING_MODEL=text-embedding-3-small
+      - AUTO_MATCH_POLL_SECONDS=10
   - name: tabletalk-collector
     files:
       - config.yaml=collector.yaml

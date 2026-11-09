@@ -40,6 +40,10 @@ spec:
                 name: tabletalk-runtime
             - secretRef:
                 name: tabletalk-elasticsearch
+            # Optional: AI provider keys. Without them, AI features stay off.
+            - secretRef:
+                name: tabletalk-llm
+                optional: true
           env:
             - name: OTEL_SERVICE_NAME
               value: tabletalk-matcher

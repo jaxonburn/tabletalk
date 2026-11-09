@@ -120,8 +120,10 @@ ELASTICSEARCH_API_KEY=your-encoded-elasticsearch-api-key
 Use the Elasticsearch endpoint, not Kibana or a Cloud ID. Use an Elasticsearch
 API key's encoded value without an `ApiKey` prefix, not an Elastic Cloud
 management key. For an Elastic Cloud Hosted deployment, grant cluster `monitor`
-and index `manage`, `read`, and `write` on `tabletalk-attendees-v1` and
-`tabletalk-plans-v1`. TLS verification stays enabled.
+and index `manage`, `read`, and `write` on all five application indices
+(`tabletalk-attendees-v1`, `-plans-v1`, `-events-v1`, `-runs-v1`, `-tokens-v1`, or
+the pattern `tabletalk-*`). TLS verification stays enabled. For the hosted
+deployment's AI and host-token secrets, see `infra/radar/README.md`.
 
 Elastic Cloud Serverless is also supported. Use a project API key with index
 management and document read/write permissions. Startup detects Serverless and
