@@ -108,7 +108,9 @@ export interface ConferenceState {
   lunch_label: string;
   group_size: number;
   attendees: Attendee[];
+  attendee_count: number;
   plan: MatchPlan | null;
+  published: boolean;
   status?: EnrollmentStatus;
   enrollment_closes_at?: string | null;
   capacity?: number;

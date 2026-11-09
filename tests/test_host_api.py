@@ -91,6 +91,27 @@ class TestCutoff:
         assert body["group_size"] == 6
         assert datetime.fromisoformat(body["enrollment_closes_at"]) == future
 
+    def test_public_conference_returns_only_aggregate_data(
+        self, api: Api, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        client, _ = api
+        attendees = people(2)
+        plan = make_run(attendees).plan
+        monkeypatch.setattr(main, "list_attendees", AsyncMock(return_value=attendees))
+        monkeypatch.setattr(main, "read_plan", AsyncMock(return_value=plan))
+
+        response = client.get("/api/conference")
+        body = response.json()
+        assert body["attendees"] == []
+        assert body["attendee_count"] == 2
+        assert body["plan"] is None
+        assert body["published"] is True
+        assert body["status"] == "published"
+        for attendee in attendees:
+            assert attendee.name not in response.text
+            for answer in attendee.goal_answers.values():
+                assert answer not in response.text
+
     def test_capacity_follows_the_host_tables(
         self, api: Api, monkeypatch: pytest.MonkeyPatch
     ) -> None:

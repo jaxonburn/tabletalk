@@ -16,7 +16,9 @@ const conference: ConferenceState = {
   lunch_label: "Day 1 lunch",
   group_size: 4,
   attendees: [],
+  attendee_count: 0,
   plan: null,
+  published: false,
 };
 
 function jsonResponse(body: unknown, status = 200) {
@@ -314,53 +316,22 @@ describe("API errors", () => {
   });
 });
 
-describe("lunch groups", () => {
-  it("shows each table's number, summary, and conversation starters", async () => {
-    const member = {
-      id: "fx-01",
-      conference_id: "demo",
-      name: "Priya Nair",
-      role: "Platform engineer",
-      interests: ["kubernetes"],
-      goals: ["Learn" as const],
-      can_help: "Autoscaling",
-      want_to_learn: "Developer experience",
-      lunch_slot: "day-1-lunch",
-    };
-    const planned: ConferenceState = {
+describe("public conference privacy", () => {
+  it("shows aggregate counts without publishing attendees' tables", async () => {
+    const published: ConferenceState = {
       ...conference,
-      attendees: [member, { ...member, id: "fx-02", name: "Marcus Webb" }],
-      plan: {
-        attendee_count: 2,
-        generated_at: "2026-11-09T18:40:00Z",
-        groups: [
-          {
-            id: "table-7",
-            table_number: 7,
-            members: [member, { ...member, id: "fx-02", name: "Marcus Webb" }],
-            reasons: [
-              { attendee_ids: ["fx-01", "fx-02"], text: "Detailed reason." },
-            ],
-            summary: "This table has common ground in kubernetes.",
-            starters: ["Marcus asks: how do you autoscale for flash sales?"],
-            member_notes: [],
-            narrative_source: "template",
-          },
-        ],
-      },
+      attendee_count: 2,
+      published: true,
+      status: "published",
     };
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockImplementation(async () => jsonResponse(planned)),
+      vi.fn().mockImplementation(async () => jsonResponse(published)),
     );
     render(<App />);
-    expect(await screen.findByText("Table 7")).toBeTruthy();
-    expect(
-      screen.getByText("This table has common ground in kubernetes."),
-    ).toBeTruthy();
-    expect(
-      screen.getByText("Marcus asks: how do you autoscale for flash sales?"),
-    ).toBeTruthy();
-    expect(screen.queryByText("Detailed reason.")).toBeNull();
+    expect(await screen.findByText("The tables are ready.")).toBeTruthy();
+    expect(screen.getByText("2", { selector: "strong" })).toBeTruthy();
+    expect(screen.queryByText("Table 7")).toBeNull();
+    expect(screen.queryByText("Priya Nair")).toBeNull();
   });
 });

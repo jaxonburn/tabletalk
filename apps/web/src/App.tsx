@@ -13,7 +13,6 @@ import {
   type EnrolledAttendee,
   type Enrollment,
   type Goal,
-  type LunchGroup,
   type MyStatus,
 } from "./api";
 import "./styles.css";
@@ -56,84 +55,6 @@ const goalLabels: Record<Goal, string> = {
   "Share something I've learned": "Share",
   "Meet connections": "Connect",
 };
-function TableCard({
-  group,
-  attendeeId,
-}: {
-  group: LunchGroup;
-  attendeeId: string | null;
-}) {
-  const isYourTable = group.members.some((member) => member.id === attendeeId);
-  const yourNote = isYourTable
-    ? group.member_notes?.find((note) => note.attendee_id === attendeeId)
-    : undefined;
-  const starters = yourNote?.starters ?? group.starters ?? [];
-  const tableLabel =
-    group.table_number != null
-      ? `Table ${group.table_number}`
-      : group.id.replace("table-", "Table ");
-  return (
-    <article className={`table-card ${isYourTable ? "your-table" : ""}`}>
-      <div className="card-heading">
-        <h3>{tableLabel}</h3>
-        <span className="badge">
-          {isYourTable ? "Your table" : `${group.members.length} people`}
-        </span>
-      </div>
-      <ul className="member-list">
-        {group.members.map((member) => (
-          <li key={member.id}>
-            <span className="avatar" aria-hidden="true">
-              {member.name
-                .split(" ")
-                .map((part) => part[0])
-                .slice(0, 2)
-                .join("")}
-            </span>
-            <div>
-              <strong>{member.name}</strong>
-              <span className="muted">{member.role}</span>
-            </div>
-          </li>
-        ))}
-      </ul>
-      <div className="match-reasons">
-        <p className="eyebrow">Why this table works</p>
-        {group.summary ? (
-          <p>{group.summary}</p>
-        ) : group.reasons.length ? (
-          group.reasons
-            .slice(0, 3)
-            .map((reason) => (
-              <p key={reason.attendee_ids.join(":")}>{reason.text}</p>
-            ))
-        ) : (
-          <p>
-            Everyone shares this lunch slot. No direct topic overlap was found,
-            so this is a chance to discover a different perspective.
-          </p>
-        )}
-        {yourNote && (
-          <>
-            <p className="eyebrow">For you</p>
-            <p>{yourNote.summary}</p>
-          </>
-        )}
-        {starters.length > 0 && (
-          <>
-            <p className="eyebrow">Conversation starters</p>
-            <ul className="starters">
-              {starters.map((starter) => (
-                <li key={starter}>{starter}</li>
-              ))}
-            </ul>
-          </>
-        )}
-      </div>
-    </article>
-  );
-}
-
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString([], {
     hour: "numeric",
@@ -282,7 +203,7 @@ export default function App() {
     });
   }
 
-  const published = Boolean(conference?.plan);
+  const published = Boolean(conference?.published);
   const closed =
     published ||
     (conference?.status !== undefined && conference.status !== "open");
@@ -459,7 +380,7 @@ export default function App() {
                     </h2>
                     <p className="section-description">
                       {published
-                        ? "Enrollment is closed for this lunch. Explore the groups and their connections below."
+                        ? "The groups are ready. Your table and conversation starters are available on the device you enrolled with."
                         : closed
                           ? "The host is setting the tables."
                           : closesAt
@@ -621,12 +542,12 @@ export default function App() {
                 </p>
                 <div className="stats">
                   <div>
-                    <strong>{conference.attendees.length}</strong>
+                    <strong>{conference.attendee_count}</strong>
                     <span>people on the list</span>
                   </div>
                   <div>
-                    <strong>{conference.plan?.groups.length ?? "—"}</strong>
-                    <span>tables ready</span>
+                    <strong>{published ? "Ready" : "Pending"}</strong>
+                    <span>group status</span>
                   </div>
                 </div>
                 <div className="organizer-actions">
@@ -652,28 +573,6 @@ export default function App() {
                 </p>
               </aside>
             </div>
-
-            {conference.plan && (
-              <section
-                className="groups-section"
-                aria-labelledby="groups-heading"
-              >
-                <p className="eyebrow">03 / Meet your people</p>
-                <h2 id="groups-heading">Different paths. One table.</h2>
-                <p className="section-description">
-                  Real connections, with a reason behind each match.
-                </p>
-                <div className="groups-grid">
-                  {conference.plan.groups.map((group) => (
-                    <TableCard
-                      key={group.id}
-                      group={group}
-                      attendeeId={me?.attendee.id ?? null}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
           </>
         )}
       </main>

@@ -357,7 +357,9 @@ class ConferenceState(BaseModel):
     lunch_label: str = "Day 1 lunch"
     group_size: int = GROUP_SIZE
     attendees: list[Attendee]
+    attendee_count: int
     plan: MatchPlan | None
+    published: bool
     status: EnrollmentStatus = "open"
     enrollment_closes_at: datetime | None = None
     capacity: int = MAX_ATTENDEES

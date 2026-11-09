@@ -46,6 +46,7 @@ from tabletalk_matcher.sizing import SeatingError
 logger = logging.getLogger(__name__)
 tracer = trace.get_tracer(__name__)
 AFFINITY_CONCURRENCY = 8
+ENRICHMENT_TIMEOUT = 40
 
 
 @asynccontextmanager
@@ -108,10 +109,14 @@ async def compute_run(request: RunRequest, client: Client, http_request: Request
     attendees = keyword_attendees
     if request.use_semantic and (embedder is not None or llm is not None):
         try:
-            attendees, enrichment = await enrich(
-                client, keyword_attendees, embedder=embedder, llm=llm
+            attendees, enrichment = await asyncio.wait_for(
+                enrich(client, keyword_attendees, embedder=embedder, llm=llm),
+                timeout=ENRICHMENT_TIMEOUT,
             )
             vectors, retrieval = enrichment.vectors, enrichment.retrieval
+        except TimeoutError:
+            logger.warning("Enrichment timed out; using BM25 only.")
+            attendees = keyword_attendees
         except (ApiError, TransportError) as error:
             # Hosted clusters can differ (privileges, Serverless features): keep BM25.
             logger.warning("Enrichment storage failed (%s); using BM25 only.", type(error).__name__)

@@ -174,8 +174,10 @@ async def conference(services: Dependencies) -> ConferenceState:
         read_event(services.elasticsearch),
     )
     return ConferenceState(
-        attendees=attendees,
-        plan=plan,
+        attendees=[],  # Full profiles are host-only; personal table details use /api/me.
+        attendee_count=len(attendees),
+        plan=None,
+        published=plan is not None,
         group_size=max(table.seats for table in event.tables),
         status=enrollment_status(event, plan, utc_now()),
         enrollment_closes_at=event.enrollment_closes_at,

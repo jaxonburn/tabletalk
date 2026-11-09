@@ -1,3 +1,4 @@
+import asyncio
 import json
 from datetime import UTC, datetime
 from typing import Any
@@ -351,6 +352,44 @@ def test_keyword_only_runs_ignore_tags_from_earlier_semantic_runs(
     assert response.status_code == 200
     assert response.json()["retrieval"] == "bm25"
     assert queries and not any("topic_tags" in json.dumps(query) for query in queries)
+
+
+def test_slow_enrichment_falls_back_to_bm25(monkeypatch: pytest.MonkeyPatch) -> None:
+    group = [a.model_copy(update={"topic_tags": ["private tag"]}) for a in people(4)]
+    started: list[bool] = []
+
+    async def slow_enrich(*_args: Any, **_kwargs: Any) -> Any:
+        started.append(True)
+        await asyncio.sleep(1)
+
+    async def search(**kwargs: Any) -> dict[str, Any]:
+        me = kwargs["query"]["bool"]["must_not"][0]["term"]["id"]
+        return {"hits": {"hits": [{"_id": a.id, "_score": 1.0} for a in group if a.id != me]}}
+
+    client = Mock(spec=AsyncElasticsearch)
+    client.search = AsyncMock(side_effect=search)
+    monkeypatch.setattr(matcher_main, "list_attendees", AsyncMock(return_value=group))
+    monkeypatch.setattr(matcher_main, "enrich", slow_enrich)
+    monkeypatch.setattr(matcher_main, "ENRICHMENT_TIMEOUT", 0.01)
+    matcher_main.app.dependency_overrides[matcher_main.get_client] = lambda: client
+    matcher_main.app.state.embedder = FakeEmbedder()
+    matcher_main.app.state.llm = FakeTagger()
+    try:
+        response = TestClient(matcher_main.app).post(
+            "/runs", json={"tables": [{"number": 1, "seats": 4}], "use_llm": False}
+        )
+    finally:
+        matcher_main.app.dependency_overrides.clear()
+        matcher_main.app.state.embedder = None
+        matcher_main.app.state.llm = None
+    assert response.status_code == 200
+    assert response.json()["retrieval"] == "bm25"
+    assert started
+    assert all(
+        member["topic_tags"] == []
+        for group_result in response.json()["groups"]
+        for member in group_result["members"]
+    )
 
 
 def test_vector_search_failures_fall_back_to_keyword_scoring(
