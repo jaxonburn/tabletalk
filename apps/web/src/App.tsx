@@ -239,7 +239,7 @@ export default function App() {
               <span>Shared interests. New perspectives.</span>
             </div>
             <div className="hero-links">
-              <a className="onboarding-link" href="/">
+              <a className="onboarding-link" href="/user-onboarding">
                 Switch to the new attendee experience
                 <span aria-hidden="true">→</span>
               </a>
