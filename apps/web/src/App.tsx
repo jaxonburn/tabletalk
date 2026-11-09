@@ -1,108 +1,146 @@
-import { useEffect, useState, type FormEvent } from "react";
 import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
+import {
+  ApiError,
   goalOptions,
   request,
-  type Attendee,
   type ConferenceState,
+  type EnrolledAttendee,
   type Enrollment,
   type Goal,
-  type LunchGroup,
+  type MyStatus,
 } from "./api";
 import "./styles.css";
 
-const emptyForm = {
-  name: "",
-  role: "",
-  interests: "",
-  can_help: "",
-  want_to_learn: "",
+export const ATTENDEE_TOKEN_KEY = "tabletalk-attendee-token";
+
+// Storage can be missing or blocked (privacy modes); the page then works for this session.
+function tokenStore(): Storage | null {
+  try {
+    return globalThis.localStorage ?? null;
+  } catch {
+    return null;
+  }
+}
+const readToken = () => tokenStore()?.getItem(ATTENDEE_TOKEN_KEY) ?? "";
+const storeToken = (token: string) =>
+  tokenStore()?.setItem(ATTENDEE_TOKEN_KEY, token);
+const clearToken = () => tokenStore()?.removeItem(ATTENDEE_TOKEN_KEY);
+const POLL_MS = 20_000;
+const emptyForm = { name: "", role: "", interests: "" };
+const fallbackPrompts: Record<
+  Goal,
+  { question: string; example_hint: string }
+> = {
+  Learn: {
+    question: "What do you want to learn?",
+    example_hint: "A specific question you'd love answered.",
+  },
+  "Share something I've learned": {
+    question: "What could you share?",
+    example_hint: "Something you've built, fixed, or figured out.",
+  },
+  "Meet connections": {
+    question: "What would you enjoy talking about?",
+    example_hint: "Topics you'd happily discuss with new people.",
+  },
 };
-function TableCard({
-  group,
-  attendeeId,
-}: {
-  group: LunchGroup;
-  attendeeId: string | null;
-}) {
-  const isYourTable = group.members.some((member) => member.id === attendeeId);
-  return (
-    <article className={`table-card ${isYourTable ? "your-table" : ""}`}>
-      <div className="card-heading">
-        <h3>{group.id.replace("table-", "Table ")}</h3>
-        <span className="badge">
-          {isYourTable ? "Your table" : `${group.members.length} people`}
-        </span>
-      </div>
-      <ul className="member-list">
-        {group.members.map((member) => (
-          <li key={member.id}>
-            <span className="avatar" aria-hidden="true">
-              {member.name
-                .split(" ")
-                .map((part) => part[0])
-                .slice(0, 2)
-                .join("")}
-            </span>
-            <div>
-              <strong>{member.name}</strong>
-              <span className="muted">{member.role}</span>
-            </div>
-          </li>
-        ))}
-      </ul>
-      <div className="match-reasons">
-        <p className="eyebrow">Why this table works</p>
-        {group.reasons.length ? (
-          group.reasons
-            .slice(0, 3)
-            .map((reason) => (
-              <p key={reason.attendee_ids.join(":")}>{reason.text}</p>
-            ))
-        ) : (
-          <p>
-            Everyone shares this lunch slot. No direct topic overlap was found,
-            so this is a chance to discover a different perspective.
-          </p>
-        )}
-      </div>
-    </article>
-  );
+const goalLabels: Record<Goal, string> = {
+  Learn: "Learn",
+  "Share something I've learned": "Share",
+  "Meet connections": "Connect",
+};
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 export default function App() {
   const [conference, setConference] = useState<ConferenceState | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [goals, setGoals] = useState<Goal[]>([]);
-  const [attendeeId, setAttendeeId] = useState<string | null>(null);
+  const [answers, setAnswers] = useState<Partial<Record<Goal, string>>>({});
+  const [focus, setFocus] = useState<Goal | null>(null);
+  const [token, setTokenState] = useState(readToken);
+  // Refreshes can overlap (polling, actions, token changes). Only the newest one,
+  // for the current token, may update the page.
+  const tokenRef = useRef(token);
+  const refreshGeneration = useRef(0);
+  const setToken = useCallback((next: string) => {
+    tokenRef.current = next;
+    setTokenState(next);
+  }, []);
+  const [me, setMe] = useState<MyStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
+  const forget = useCallback(() => {
+    clearToken();
+    setToken("");
+    setMe(null);
+  }, [setToken]);
+
+  const refresh = useCallback(async () => {
+    const generation = ++refreshGeneration.current;
+    const [state, mine] = await Promise.all([
+      request<ConferenceState>("/api/conference"),
+      token
+        ? request<MyStatus>("/api/me", undefined, {
+            attendeeToken: token,
+          }).catch((cause: unknown) => {
+            // A token from another stack or a reset demo: start fresh.
+            if (cause instanceof ApiError && cause.status === 401) return null;
+            throw cause;
+          })
+        : Promise.resolve(null),
+    ]);
+    if (generation !== refreshGeneration.current || token !== tokenRef.current)
+      return;
+    setConference(state);
+    setMe(mine);
+    if (token && mine === null) forget();
+  }, [token, forget]);
+
   useEffect(() => {
-    const controller = new AbortController();
-    request<ConferenceState>("/api/conference")
-      .then((state) => {
-        if (!controller.signal.aborted) setConference(state);
-      })
-      .catch((cause: unknown) => {
-        if (!controller.signal.aborted)
-          setError(
-            cause instanceof Error
-              ? cause.message
-              : "Could not load the conference.",
-          );
-      });
-    return () => controller.abort();
-  }, []);
+    let cancelled = false;
+    refresh().catch((cause: unknown) => {
+      if (!cancelled)
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : "Could not load the conference.",
+        );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [refresh]);
+
+  // While someone is waiting for their table, check back so it appears on its own.
+  const waiting = Boolean(me && me.status !== "published");
+  useEffect(() => {
+    if (!waiting) return;
+    const timer = window.setInterval(() => {
+      void refresh().catch(() => undefined);
+    }, POLL_MS);
+    return () => window.clearInterval(timer);
+  }, [waiting, refresh]);
 
   async function mutate(action: () => Promise<string>) {
     setBusy(true);
     setError("");
     setNotice("");
     try {
-      const message = await action();
-      setNotice(message);
-      setConference(await request<ConferenceState>("/api/conference"));
+      setNotice(await action());
+      await refresh();
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -114,6 +152,14 @@ export default function App() {
     }
   }
 
+  function toggleGoal(goal: Goal) {
+    const next = goals.includes(goal)
+      ? goals.filter((value) => value !== goal)
+      : [...goals, goal];
+    setGoals(next);
+    if (!focus || !next.includes(focus)) setFocus(next[0] ?? null);
+  }
+
   function enroll(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!conference) return;
@@ -121,29 +167,51 @@ export default function App() {
       setError("Please select at least one lunch goal.");
       return;
     }
+    const missing = goals.filter((goal) => !answers[goal]?.trim());
+    if (missing.length) {
+      setError(
+        `Please answer: ${missing.map((goal) => goalLabels[goal]).join(", ")}.`,
+      );
+      return;
+    }
     const enrollment: Enrollment = {
-      ...form,
+      name: form.name,
+      role: form.role,
       interests: form.interests
         .split(",")
         .map((topic) => topic.trim())
         .filter(Boolean),
       lunch_slot: conference.lunch_slot,
       goals,
+      focus_goal: focus && goals.includes(focus) ? focus : goals[0],
+      goal_answers: Object.fromEntries(
+        goals.map((goal) => [goal, answers[goal]?.trim() ?? ""]),
+      ),
     };
     void mutate(async () => {
-      const attendee = await request<Attendee>("/api/enrollments", enrollment);
-      setAttendeeId(attendee.id);
+      const attendee = await request<EnrolledAttendee>(
+        "/api/enrollments",
+        enrollment,
+      );
+      storeToken(attendee.attendee_token);
+      setToken(attendee.attendee_token);
       setForm(emptyForm);
       setGoals([]);
-      return "You're on the list! Your table will appear when the organizer makes the groups.";
+      setAnswers({});
+      setFocus(null);
+      return "You're in for lunch! Your table will appear here when the host publishes the groups.";
     });
   }
 
-  const closed = Boolean(conference?.plan);
-  const enrolled = Boolean(
-    attendeeId &&
-    conference?.attendees.some((attendee) => attendee.id === attendeeId),
-  );
+  const published = Boolean(conference?.published);
+  const closed =
+    published ||
+    (conference?.status !== undefined && conference.status !== "open");
+  const closesAt = conference?.enrollment_closes_at
+    ? formatTime(conference.enrollment_closes_at)
+    : null;
+  const assignment = me?.assignment ?? null;
+  const prompts = conference?.goal_prompts ?? {};
 
   return (
     <div className="app-shell">
@@ -230,21 +298,98 @@ export default function App() {
             <div className="workspace">
               <section className="enrollment-card">
                 <p className="eyebrow">01 / Pull up a chair</p>
-                <h2>
-                  {closed
-                    ? "The tables are ready."
-                    : enrolled
-                      ? "You're on the list."
-                      : "A little about you."}
-                </h2>
-                <p className="section-description">
-                  {closed
-                    ? "Enrollment is closed for this lunch. Explore the groups and their connections below."
-                    : enrolled
-                      ? "The organizer will assign your lunch group. You can refresh to check for your table."
-                      : "Not a resume. Just a few things that make a conversation worth having."}
-                </p>
-                {!closed && !enrolled && (
+                {me && assignment ? (
+                  <section aria-labelledby="your-table-heading">
+                    <h2 id="your-table-heading">
+                      {assignment.table_number != null
+                        ? `You're at Table ${assignment.table_number}.`
+                        : "Your table is ready."}
+                    </h2>
+                    <p className="section-description">{assignment.summary}</p>
+                    <p className="eyebrow">Your tablemates</p>
+                    <ul className="member-list">
+                      {assignment.tablemates.map((mate, index) => (
+                        <li key={`${mate.first_name}-${index}`}>
+                          <span className="avatar" aria-hidden="true">
+                            {mate.first_name.slice(0, 2)}
+                          </span>
+                          <div>
+                            <strong>{mate.first_name}</strong>
+                            <span className="muted">
+                              {mate.role} · {mate.interests.join(", ")}
+                            </span>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="eyebrow">Conversation starters for you</p>
+                    <ul className="starters your-starters">
+                      {assignment.starters.map((starter) => (
+                        <li key={starter}>{starter}</li>
+                      ))}
+                    </ul>
+                    {assignment.table_summary &&
+                      assignment.table_summary !== assignment.summary && (
+                        <>
+                          <p className="eyebrow">The whole table</p>
+                          <p className="section-description">
+                            {assignment.table_summary}
+                          </p>
+                        </>
+                      )}
+                    <button className="text-button" onClick={forget}>
+                      Not {me.attendee.name.split(" ")[0]}? Forget this device
+                    </button>
+                  </section>
+                ) : me ? (
+                  <section aria-labelledby="waiting-heading">
+                    <h2 id="waiting-heading">
+                      You&apos;re in for lunch, {me.attendee.name.split(" ")[0]}
+                      .
+                    </h2>
+                    <p className="section-description">
+                      {me.status === "open"
+                        ? closesAt
+                          ? `You're locked in. Enrollment closes at ${closesAt}, then your table appears here automatically.`
+                          : "You're locked in. Your table appears here as soon as the host publishes the groups."
+                        : "Enrollment has closed. The host is setting the tables, and yours will appear here in a moment."}
+                    </p>
+                    <dl className="answers">
+                      {me.attendee.goals.map((goal) => (
+                        <div key={goal}>
+                          <dt>
+                            {goalLabels[goal]}
+                            {me.attendee.focus_goal === goal ? " (focus)" : ""}
+                          </dt>
+                          <dd>{me.attendee.goal_answers?.[goal] ?? "—"}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                    <button className="text-button" onClick={forget}>
+                      Not {me.attendee.name.split(" ")[0]}? Forget this device
+                    </button>
+                  </section>
+                ) : (
+                  <>
+                    <h2>
+                      {published
+                        ? "The tables are ready."
+                        : closed
+                          ? "Enrollment is closed."
+                          : "A little about you."}
+                    </h2>
+                    <p className="section-description">
+                      {published
+                        ? "The groups are ready. Your table and conversation starters are available on the device you enrolled with."
+                        : closed
+                          ? "The host is setting the tables."
+                          : closesAt
+                            ? `Not a resume. Just a few things that make a conversation worth having. Enrollment closes at ${closesAt}.`
+                            : "Not a resume. Just a few things that make a conversation worth having."}
+                    </p>
+                  </>
+                )}
+                {!closed && !me && (
                   <form onSubmit={enroll}>
                     <fieldset disabled={busy}>
                       <div className="form-row">
@@ -276,6 +421,22 @@ export default function App() {
                           />
                         </label>
                       </div>
+                      <label>
+                        What could you talk about for hours?
+                        <input
+                          name="interests"
+                          required
+                          maxLength={406}
+                          value={form.interests}
+                          onChange={(e) =>
+                            setForm({ ...form, interests: e.target.value })
+                          }
+                          placeholder="Kubernetes, open source, accessibility"
+                        />
+                        <span className="field-hint">
+                          Up to 8 topics, separated by commas.
+                        </span>
+                      </label>
                       <div className="goal-field">
                         <span id="goals-label" className="field-label">
                           What brings you to the lunch table?{" "}
@@ -294,71 +455,75 @@ export default function App() {
                               type="button"
                               className="goal-chip"
                               aria-pressed={goals.includes(value)}
-                              onClick={() =>
-                                setGoals(
-                                  goals.includes(value)
-                                    ? goals.filter((goal) => goal !== value)
-                                    : [...goals, value],
-                                )
-                              }
+                              onClick={() => toggleGoal(value)}
                             >
                               {label}
                             </button>
                           ))}
                         </div>
                       </div>
-                      <label>
-                        What could you talk about for hours?
-                        <input
-                          name="interests"
-                          required
-                          maxLength={406}
-                          value={form.interests}
-                          onChange={(e) =>
-                            setForm({ ...form, interests: e.target.value })
-                          }
-                          placeholder="Kubernetes, open source, accessibility"
-                        />
-                        <span className="field-hint">
-                          Up to 8 topics, separated by commas.
-                        </span>
-                      </label>
-                      <label>
-                        What you can offer
-                        <textarea
-                          name="can_help"
-                          required
-                          maxLength={500}
-                          rows={2}
-                          value={form.can_help}
-                          onChange={(e) =>
-                            setForm({ ...form, can_help: e.target.value })
-                          }
-                          placeholder="Making sense of distributed tracing..."
-                        />
-                      </label>
-                      <label>
-                        What you&apos;re looking for
-                        <textarea
-                          name="want_to_learn"
-                          required
-                          maxLength={500}
-                          rows={2}
-                          value={form.want_to_learn}
-                          onChange={(e) =>
-                            setForm({ ...form, want_to_learn: e.target.value })
-                          }
-                          placeholder="How other teams build developer platforms..."
-                        />
-                      </label>
+                      {goalOptions
+                        .filter(({ value }) => goals.includes(value))
+                        .map(({ value }) => {
+                          const prompt =
+                            prompts[value] ?? fallbackPrompts[value];
+                          return (
+                            <label key={value}>
+                              {goalLabels[value]}: {prompt.question}
+                              <textarea
+                                name={`answer-${goalLabels[value].toLowerCase()}`}
+                                required
+                                maxLength={500}
+                                rows={2}
+                                value={answers[value] ?? ""}
+                                onChange={(e) =>
+                                  setAnswers({
+                                    ...answers,
+                                    [value]: e.target.value,
+                                  })
+                                }
+                                placeholder={prompt.example_hint}
+                              />
+                            </label>
+                          );
+                        })}
+                      {goals.length > 1 && (
+                        <div className="goal-field">
+                          <span id="focus-label" className="field-label">
+                            Today&apos;s focus{" "}
+                            <span className="field-hint">
+                              We&apos;ll weigh this one most.
+                            </span>
+                          </span>
+                          <div
+                            className="goal-options"
+                            role="radiogroup"
+                            aria-labelledby="focus-label"
+                          >
+                            {goals.map((goal) => (
+                              <label key={goal} className="checkbox-row">
+                                <input
+                                  type="radio"
+                                  name="focus"
+                                  checked={focus === goal}
+                                  onChange={() => setFocus(goal)}
+                                />
+                                {goalLabels[goal]}
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       <button className="primary-button" type="submit">
-                        {busy ? "Saving your seat..." : "Find my lunch people"}
+                        {busy ? "Saving your seat..." : "Submit me for lunch"}
                         <span aria-hidden="true">&rarr;</span>
                       </button>
                     </fieldset>
                     <p className="privacy-note">
                       Local demo: profiles and groups are visible to everyone
-                      using this instance. Use fictional details.
+                      using this instance. If the host turns on AI notes, your
+                      answers are sent to an AI provider to write conversation
+                      starters. Use fictional details.
                     </p>
                   </form>
                 )}
@@ -377,47 +542,15 @@ export default function App() {
                 </p>
                 <div className="stats">
                   <div>
-                    <strong>{conference.attendees.length}</strong>
+                    <strong>{conference.attendee_count}</strong>
                     <span>people on the list</span>
                   </div>
                   <div>
-                    <strong>{conference.plan?.groups.length ?? "—"}</strong>
-                    <span>tables ready</span>
+                    <strong>{published ? "Ready" : "Pending"}</strong>
+                    <span>group status</span>
                   </div>
                 </div>
                 <div className="organizer-actions">
-                  <button
-                    disabled={busy || closed}
-                    onClick={() =>
-                      void mutate(async () => {
-                        const result = await request<{ created: number }>(
-                          "/api/demo/seed",
-                          {},
-                        );
-                        return result.created
-                          ? `Added ${result.created} fictional attendees.`
-                          : "Demo attendees are already on the list.";
-                      })
-                    }
-                  >
-                    Add demo attendees
-                  </button>
-                  <button
-                    className="dark-button"
-                    disabled={busy || closed || conference.attendees.length < 2}
-                    onClick={() =>
-                      void mutate(async () => {
-                        await request("/api/matches", {});
-                        return "The tables are ready. Time to meet your people!";
-                      })
-                    }
-                  >
-                    {busy
-                      ? "Working..."
-                      : closed
-                        ? "Groups assigned"
-                        : "Make lunch groups"}
-                  </button>
                   <button
                     className="text-button"
                     disabled={busy}
@@ -427,35 +560,19 @@ export default function App() {
                   >
                     Refresh the guest list
                   </button>
+                  <a className="text-button host-link" href="/host">
+                    Hosting? Open the host view &rarr;
+                  </a>
                 </div>
                 <p className="privacy-note">
-                  Organizer controls are open in this local demo. Making groups
-                  closes enrollment for this lunch.
+                  {closesAt && !published
+                    ? `Enrollment closes at ${closesAt}. `
+                    : ""}
+                  The host makes the groups; publishing them closes enrollment
+                  for this lunch.
                 </p>
               </aside>
             </div>
-
-            {conference.plan && (
-              <section
-                className="groups-section"
-                aria-labelledby="groups-heading"
-              >
-                <p className="eyebrow">03 / Meet your people</p>
-                <h2 id="groups-heading">Different paths. One table.</h2>
-                <p className="section-description">
-                  Real connections, with a reason behind each match.
-                </p>
-                <div className="groups-grid">
-                  {conference.plan.groups.map((group) => (
-                    <TableCard
-                      key={group.id}
-                      group={group}
-                      attendeeId={attendeeId}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
           </>
         )}
       </main>

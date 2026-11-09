@@ -1,141 +1,146 @@
-import re
-from collections.abc import Awaitable, Callable
+"""Turn a snapshot of attendees into a validated, explained lunch plan."""
+
+import random
+from collections.abc import Sequence
 from datetime import UTC, datetime
-from math import ceil
-from typing import Any
+from itertools import combinations
+from statistics import mean
 
 from opentelemetry import trace
-from tabletalk_shared.models import GROUP_SIZE, Attendee, Goal, LunchGroup, MatchPlan, MatchReason
-from tabletalk_shared.storage import conference_filter
+from tabletalk_shared.models import (
+    Attendee,
+    LunchGroup,
+    MatchMetrics,
+    MatchPlan,
+    TableSpec,
+)
 
-CandidateSearch = Callable[[list[Attendee], set[str]], Awaitable[Attendee]]
+from tabletalk_matcher.affinity import Affinity, learn_text
+from tabletalk_matcher.narratives import (
+    member_note,
+    table_reasons,
+    table_starters,
+    table_summary,
+    teaching_overlap,
+)
+from tabletalk_matcher.optimizer import PairScore, assign_tables
+from tabletalk_matcher.sizing import TablePlan, plan_table_sizes
+
 tracer = trace.get_tracer(__name__)
-COMPLEMENTARY_GOALS: dict[Goal, Goal] = {
-    "Learn": "Share something I've learned",
-    "Share something I've learned": "Learn",
-    "Meet connections": "Meet connections",
-}
-STOP_WORDS = {
-    "a",
-    "an",
-    "and",
-    "are",
-    "as",
-    "at",
-    "be",
-    "build",
-    "can",
-    "for",
-    "from",
-    "help",
-    "how",
-    "i",
-    "in",
-    "is",
-    "it",
-    "learn",
-    "my",
-    "of",
-    "on",
-    "or",
-    "the",
-    "to",
-    "using",
-    "want",
-    "with",
-    "you",
-}
+BASELINE_SAMPLES = 20
 
 
-def candidate_query(members: list[Attendee], excluded: set[str]) -> dict[str, Any]:
-    should: list[dict[str, Any]] = []
-    for member in members:
-        should.extend(
-            [
-                {"terms": {"interests.exact": member.interests, "boost": 4}},
-                {
-                    "terms": {
-                        "goals": [COMPLEMENTARY_GOALS[goal] for goal in member.goals],
-                        "boost": 2,
-                    }
-                },
-                {"match": {"interests": {"query": " ".join(member.interests), "boost": 2}}},
-                {"match": {"can_help": {"query": member.want_to_learn, "boost": 3}}},
-                {"match": {"want_to_learn": {"query": member.can_help, "boost": 3}}},
-            ]
-        )
-    return {
-        "bool": {
-            "filter": conference_filter(),
-            "must_not": [{"terms": {"id": sorted(excluded)}}],
-            "should": should,
-            "minimum_should_match": 0,
-        }
-    }
+class InvalidPlanError(RuntimeError):
+    """The optimizer produced seating that breaks a hard rule. Never publish it."""
 
 
-def significant_words(value: str) -> set[str]:
-    return {word for word in re.findall(r"[a-z0-9]+", value.lower()) if word not in STOP_WORDS}
-
-
-def explain_pair(left: Attendee, right: Attendee) -> MatchReason | None:
-    shared = sorted(set(left.interests) & set(right.interests))
-    reasons = []
-    if shared:
-        reasons.append(f"Shared interests: {', '.join(shared)}.")
-    aligned_goals = [
-        f"{goal} / {COMPLEMENTARY_GOALS[goal]}"
-        for goal in left.goals
-        if COMPLEMENTARY_GOALS[goal] in right.goals
-    ]
-    if aligned_goals:
-        reasons.append(f"Aligned goals: {', '.join(aligned_goals)}.")
-    for mentor, learner in ((left, right), (right, left)):
-        overlap = significant_words(mentor.can_help) & significant_words(learner.want_to_learn)
-        if overlap:
-            reasons.append(
-                f"{mentor.name} can help {learner.name} explore {', '.join(sorted(overlap)[:3])}."
-            )
-    if not reasons:
-        return None
-    return MatchReason(attendee_ids=(left.id, right.id), text=" ".join(reasons))
-
-
-def group_sizes(count: int) -> list[int]:
-    if count < 2:
-        raise ValueError("At least two attendees are needed to make a lunch group.")
-    group_count = ceil(count / GROUP_SIZE)
-    size, larger_groups = divmod(count, group_count)
-    return [size + (index < larger_groups) for index in range(group_count)]
-
-
-async def build_plan(attendees: list[Attendee], search: CandidateSearch) -> MatchPlan:
-    sizes = group_sizes(len(attendees))
-    remaining = {attendee.id: attendee for attendee in attendees}
-    assigned: set[str] = set()
-    groups = []
-    with tracer.start_as_current_span("matching.build_groups") as span:
+def build_plan(
+    attendees: list[Attendee],
+    tables: list[TableSpec],
+    affinity: Affinity,
+    *,
+    seed: int = 0,
+    min_table_size: int = 2,
+) -> MatchPlan:
+    with tracer.start_as_current_span("matching.build_plan") as span:
         span.set_attribute("matching.attendee_count", len(attendees))
-        for index, size in enumerate(sizes, start=1):
-            seed_id = min(remaining)
-            members = [remaining.pop(seed_id)]
-            assigned.add(seed_id)
-            while len(members) < size:
-                candidate = await search(members, assigned)
-                if candidate.id not in remaining:
-                    raise RuntimeError("Search returned an attendee outside the matching snapshot.")
-                members.append(remaining.pop(candidate.id))
-                assigned.add(candidate.id)
-            reasons = [
-                reason
-                for position, left in enumerate(members)
-                for right in members[position + 1 :]
-                if (reason := explain_pair(left, right)) is not None
-            ]
-            groups.append(LunchGroup(id=f"table-{index}", members=members, reasons=reasons))
+        by_id = {attendee.id: attendee for attendee in attendees}
+        if len(by_id) != len(attendees):
+            raise InvalidPlanError("The attendee snapshot contains duplicate IDs.")
+        layout = plan_table_sizes(tables, len(attendees), min_table_size)
+        with tracer.start_as_current_span("matching.optimize"):
+            seating = assign_tables(
+                sorted(by_id), [table.size for table in layout], affinity, seed=seed
+            )
+        validate_seating(sorted(by_id), layout, seating, tables)
+
+        groups = []
+        for table, member_ids in zip(layout, seating, strict=True):
+            members = [by_id[member_id] for member_id in member_ids]
+            groups.append(
+                LunchGroup(
+                    id=f"table-{table.number}",
+                    table_number=table.number,
+                    members=members,
+                    reasons=table_reasons(members),
+                    summary=table_summary(members),
+                    starters=table_starters(members),
+                    member_notes=[member_note(member, members) for member in members],
+                    narrative_source="template",
+                )
+            )
+        metrics = measure(groups, affinity, seed)
         span.set_attribute("matching.group_count", len(groups))
     return MatchPlan(
         groups=groups,
         generated_at=datetime.now(UTC).isoformat(),
         attendee_count=len(attendees),
+        seed=seed,
+        metrics=metrics,
     )
+
+
+def validate_seating(
+    attendee_ids: Sequence[str],
+    layout: Sequence[TablePlan],
+    seating: Sequence[Sequence[str]],
+    tables: Sequence[TableSpec],
+) -> None:
+    seated = [member for table in seating for member in table]
+    if sorted(seated) != sorted(attendee_ids):
+        raise InvalidPlanError("Every attendee must be seated exactly once.")
+    seats = {table.number: table.seats for table in tables}
+    for table, members in zip(layout, seating, strict=True):
+        if table.number not in seats:
+            raise InvalidPlanError(f"Table {table.number} does not exist.")
+        if len(members) != table.size or len(members) > seats[table.number]:
+            raise InvalidPlanError(f"Table {table.number} does not match its planned size.")
+
+
+def measure(groups: list[LunchGroup], affinity: PairScore, seed: int) -> MatchMetrics:
+    seating = [[member.id for member in group.members] for group in groups]
+    sizes = [len(table) for table in seating]
+    average, weakest = _seating_quality(seating, affinity)
+
+    rng = random.Random(seed)
+    everyone = sorted(member for table in seating for member in table)
+    samples = []
+    for _ in range(BASELINE_SAMPLES):
+        rng.shuffle(everyone)
+        shuffled, start = [], 0
+        for size in sizes:
+            shuffled.append(everyone[start : start + size])
+            start += size
+        samples.append(_seating_quality(shuffled, affinity))
+
+    learners = [
+        (member, group.members)
+        for group in groups
+        for member in group.members
+        if learn_text(member)
+    ]
+    covered = sum(
+        any(teaching_overlap(other, member) for other in members if other is not member)
+        for member, members in learners
+    )
+    return MatchMetrics(
+        attendee_count=len(everyone),
+        seated_count=len(everyone),
+        table_sizes=sizes,
+        average_pair_affinity=round(average, 4),
+        weakest_best_tablemate=round(weakest, 4),
+        learn_coverage=round(covered / len(learners), 4) if learners else None,
+        baseline_average_pair_affinity=round(mean(sample[0] for sample in samples), 4),
+        baseline_weakest_best_tablemate=round(mean(sample[1] for sample in samples), 4),
+    )
+
+
+def _seating_quality(seating: list[list[str]], affinity: PairScore) -> tuple[float, float]:
+    pairs = [affinity(left, right) for table in seating for left, right in combinations(table, 2)]
+    best = [
+        max(affinity(member, other) for other in table if other != member)
+        for table in seating
+        for member in table
+        if len(table) > 1
+    ]
+    return (mean(pairs) if pairs else 0.0, min(best) if best else 0.0)

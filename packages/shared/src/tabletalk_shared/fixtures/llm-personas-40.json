@@ -1,0 +1,950 @@
+{
+  "description": "LLM personas from openai:gpt-5.4-mini (seed 1).",
+  "tables": [
+    {
+      "number": 1,
+      "seats": 5
+    },
+    {
+      "number": 2,
+      "seats": 5
+    },
+    {
+      "number": 3,
+      "seats": 5
+    },
+    {
+      "number": 4,
+      "seats": 5
+    },
+    {
+      "number": 5,
+      "seats": 5
+    },
+    {
+      "number": 6,
+      "seats": 5
+    },
+    {
+      "number": 7,
+      "seats": 5
+    },
+    {
+      "number": 8,
+      "seats": 5
+    }
+  ],
+  "attendees": [
+    {
+      "id": "llm-fbbd5960-001",
+      "theme": "platform",
+      "name": "Maya Deshpande",
+      "role": "Senior platform engineer",
+      "interests": [
+        "kubernetes",
+        "multi-region",
+        "release automation",
+        "cost control"
+      ],
+      "goals": [
+        "Learn",
+        "Share something I've learned",
+        "Meet connections"
+      ],
+      "focus_goal": "Learn",
+      "goal_answers": {
+        "Learn": "How do you keep Kubernetes clusters stable during big flash-sale traffic spikes?",
+        "Share something I've learned": "I’ve built autoscaling and rollout guardrails for checkout services on EKS and tuned cluster cost alerts.",
+        "Meet connections": "I’d love to trade notes on platform teams running at e-commerce pace."
+      },
+      "can_help": "EKS scaling and rollout safety",
+      "want_to_learn": "flash-sale traffic patterns"
+    },
+    {
+      "id": "llm-fbbd5960-002",
+      "theme": "security",
+      "name": "Jonas Weber",
+      "role": "Application security engineer",
+      "interests": [
+        "threat modeling",
+        "llm security",
+        "sbom",
+        "vuln triage"
+      ],
+      "goals": [
+        "Learn",
+        "Meet connections"
+      ],
+      "focus_goal": "Learn",
+      "goal_answers": {
+        "Learn": "How are people using AI to cut down noisy vulnerability backlogs without missing real risk?",
+        "Meet connections": "I’m into practical AppSec workflows and would like to compare tools."
+      },
+      "can_help": "vuln triage and SBOM workflows",
+      "want_to_learn": "AI-assisted prioritization"
+    },
+    {
+      "id": "llm-fbbd5960-003",
+      "theme": "data-ml",
+      "name": "Aisha Khan",
+      "role": "Machine learning engineer",
+      "interests": [
+        "search",
+        "rag",
+        "evaluation",
+        "vector dbs"
+      ],
+      "goals": [
+        "Learn",
+        "Share something I've learned"
+      ],
+      "focus_goal": "Share something I've learned",
+      "goal_answers": {
+        "Learn": "What’s your favorite way to evaluate RAG quality beyond simple answer accuracy?",
+        "Share something I've learned": "I’ve set up offline evals for search and RAG with human review loops and failure tagging."
+      },
+      "can_help": "RAG eval pipelines",
+      "want_to_learn": "llm judge reliability"
+    },
+    {
+      "id": "llm-fbbd5960-004",
+      "theme": "observability",
+      "name": "Daniela Costa",
+      "role": "SRE manager",
+      "interests": [
+        "incident response",
+        "tracing",
+        "alerts",
+        "postmortems"
+      ],
+      "goals": [
+        "Learn",
+        "Meet connections"
+      ],
+      "focus_goal": "Learn",
+      "goal_answers": {
+        "Learn": "How are teams using traces and logs together during incidents without drowning in noise?",
+        "Meet connections": "I like talking through on-call pain points and postmortem habits."
+      },
+      "can_help": "incident review process",
+      "want_to_learn": "better alert routing"
+    },
+    {
+      "id": "llm-fbbd5960-005",
+      "theme": "frontend",
+      "name": "Ethan Brooks",
+      "role": "Frontend performance engineer",
+      "interests": [
+        "core web vitals",
+        "a11y",
+        "bundling",
+        "design systems"
+      ],
+      "goals": [
+        "Learn",
+        "Share something I've learned"
+      ],
+      "focus_goal": "Share something I've learned",
+      "goal_answers": {
+        "Learn": "How do you keep accessibility work moving when product deadlines are tight?",
+        "Share something I've learned": "I’ve cut app startup time by splitting bundles, fixing CLS, and cleaning up image loading."
+      },
+      "can_help": "web vitals tuning",
+      "want_to_learn": "practical accessibility"
+    },
+    {
+      "id": "llm-fbbd5960-006",
+      "theme": "oss",
+      "name": "Nora Silva",
+      "role": "Open source maintainer",
+      "interests": [
+        "community",
+        "governance",
+        "release management",
+        "docs"
+      ],
+      "goals": [
+        "Learn",
+        "Meet connections"
+      ],
+      "focus_goal": "Meet connections",
+      "goal_answers": {
+        "Learn": "How do other maintainers keep contributor energy up without burning out?",
+        "Meet connections": "I enjoy talking about community health, triage, and keeping projects welcoming."
+      },
+      "can_help": "maintainer workflows",
+      "want_to_learn": "sustainable contribution models"
+    },
+    {
+      "id": "llm-fbbd5960-007",
+      "theme": "bridge",
+      "name": "Priyanka Iyer",
+      "role": "Platform engineer",
+      "interests": [
+        "kubernetes",
+        "search infra",
+        "service mesh",
+        "ops"
+      ],
+      "goals": [
+        "Learn",
+        "Share something I've learned"
+      ],
+      "focus_goal": "Learn",
+      "goal_answers": {
+        "Learn": "How are people evaluating RAG search quality in production?",
+        "Share something I've learned": "I’ve run Kubernetes clusters for a large retail app and learned a lot about node pressure, HPA tuning, and safe deploys."
+      },
+      "can_help": "kubernetes scaling patterns",
+      "want_to_learn": "search and RAG evaluation"
+    },
+    {
+      "id": "llm-fbbd5960-008",
+      "theme": "bridge",
+      "name": "Marco Nguyen",
+      "role": "DevEx engineer",
+      "interests": [
+        "observability",
+        "developer tooling",
+        "open source",
+        "cli"
+      ],
+      "goals": [
+        "Learn",
+        "Meet connections",
+        "Share something I've learned"
+      ],
+      "focus_goal": "Meet connections",
+      "goal_answers": {
+        "Learn": "How do maintainers decide what to automate first when the community grows fast?",
+        "Share something I've learned": "I’ve built internal observability tooling and learned how much good dashboards help during incidents.",
+        "Meet connections": "I’d love to meet folks improving dev experience and open source processes."
+      },
+      "can_help": "dashboards and alert hygiene",
+      "want_to_learn": "open source community ops"
+    },
+    {
+      "id": "llm-fbbd5960-009",
+      "theme": "platform",
+      "name": "Ananya Iyer",
+      "role": "Staff platform engineer",
+      "interests": [
+        "kubernetes",
+        "gitops",
+        "autoscaling",
+        "multi-cluster"
+      ],
+      "goals": [
+        "Learn",
+        "Share something I've learned",
+        "Meet connections"
+      ],
+      "focus_goal": "Learn",
+      "goal_answers": {
+        "Learn": "How are people handling pod disruption and zero-downtime node upgrades at e-commerce scale?",
+        "Share something I've learned": "I’ve rolled out Karpenter with GitOps and custom HPA tuning across a few busy clusters.",
+        "Meet connections": "I’d love to swap notes on cluster cost control and rollout safety."
+      },
+      "can_help": "Karpenter, GitOps, HPA tuning",
+      "want_to_learn": "Safer upgrades for very busy clusters"
+    },
+    {
+      "id": "llm-fbbd5960-010",
+      "theme": "platform",
+      "name": "Mateo Santos",
+      "role": "Senior site reliability engineer",
+      "interests": [
+        "kubernetes",
+        "networking",
+        "terraform",
+        "platform ops"
+      ],
+      "goals": [
+        "Share something I've learned",
+        "Meet connections"
+      ],
+      "focus_goal": "Share something I've learned",
+      "goal_answers": {
+        "Share something I've learned": "I set up policy-as-code with OPA and Terraform modules to keep platform drift under control.",
+        "Meet connections": "I’m happy talking through multi-cluster networking and day-2 ops stuff."
+      },
+      "can_help": "OPA policies, Terraform modules",
+      "want_to_learn": "Multi-cluster networking at scale"
+    },
+    {
+      "id": "llm-fbbd5960-011",
+      "theme": "bridge",
+      "name": "Elena Kovacs",
+      "role": "Security engineer",
+      "interests": [
+        "llm security",
+        "vulnerability management",
+        "automation",
+        "siem"
+      ],
+      "goals": [
+        "Learn",
+        "Share something I've learned"
+      ],
+      "focus_goal": "Learn",
+      "goal_answers": {
+        "Learn": "How do teams tune alert routing and incident timelines for fast-moving production issues?",
+        "Share something I've learned": "I built an AI-assisted triage flow that clusters vuln findings and drafts remediation tickets."
+      },
+      "can_help": "AI vuln triage, vuln deduping",
+      "want_to_learn": "Incident response workflow basics"
+    },
+    {
+      "id": "llm-fbbd5960-012",
+      "theme": "data-ml",
+      "name": "Rohan Mehta",
+      "role": "ML platform engineer",
+      "interests": [
+        "rag",
+        "search",
+        "vector dbs",
+        "model eval"
+      ],
+      "goals": [
+        "Learn",
+        "Meet connections"
+      ],
+      "focus_goal": "Learn",
+      "goal_answers": {
+        "Learn": "How are folks evaluating RAG quality beyond just hit rate and latency?",
+        "Meet connections": "I’m into practical retrieval pipelines, eval harnesses, and prompt testing."
+      },
+      "can_help": "RAG pipelines, eval harnesses",
+      "want_to_learn": "Better LLM eval methods"
+    },
+    {
+      "id": "llm-fbbd5960-013",
+      "theme": "bridge",
+      "name": "Sofia Lindström",
+      "role": "Observability engineer",
+      "interests": [
+        "incident response",
+        "open telemetry",
+        "alerting",
+        "log analytics"
+      ],
+      "goals": [
+        "Learn",
+        "Share something I've learned",
+        "Meet connections"
+      ],
+      "focus_goal": "Share something I've learned",
+      "goal_answers": {
+        "Learn": "How are teams doing search ranking and grounding for internal knowledge assistants?",
+        "Share something I've learned": "I’ve used OpenTelemetry plus incident timelines to cut MTTR and clean up noisy alerts.",
+        "Meet connections": "I like comparing runbooks, paging rules, and postmortem habits."
+      },
+      "can_help": "OTel, alert tuning, incident timelines",
+      "want_to_learn": "Search and RAG quality in practice"
+    },
+    {
+      "id": "llm-fbbd5960-014",
+      "theme": "frontend",
+      "name": "Priya Desai",
+      "role": "Frontend engineer",
+      "interests": [
+        "web performance",
+        "accessibility",
+        "nextjs",
+        "design systems"
+      ],
+      "goals": [
+        "Learn",
+        "Share something I've learned",
+        "Meet connections"
+      ],
+      "focus_goal": "Learn",
+      "goal_answers": {
+        "Learn": "What are people doing to keep Core Web Vitals solid on large React apps?",
+        "Share something I've learned": "I’ve shipped accessibility fixes in Next.js and got our keyboard flows much cleaner.",
+        "Meet connections": "Happy to chat design systems, metrics, and frontend bottlenecks."
+      },
+      "can_help": "Core Web Vitals, a11y fixes",
+      "want_to_learn": "Performance budgeting for React"
+    },
+    {
+      "id": "llm-fbbd5960-015",
+      "theme": "oss",
+      "name": "Julian Park",
+      "role": "Open source maintainer",
+      "interests": [
+        "community",
+        "governance",
+        "release management",
+        "docs"
+      ],
+      "goals": [
+        "Share something I've learned",
+        "Meet connections"
+      ],
+      "focus_goal": "Share something I've learned",
+      "goal_answers": {
+        "Share something I've learned": "I’ve helped keep a CNCF-adjacent project healthy with better issue triage and release notes.",
+        "Meet connections": "I enjoy talking contributor onboarding and keeping a community warm."
+      },
+      "can_help": "Issue triage, release notes",
+      "want_to_learn": "Contributor retention ideas"
+    },
+    {
+      "id": "llm-fbbd5960-016",
+      "theme": "security",
+      "name": "Fatima Ali",
+      "role": "Cloud security engineer",
+      "interests": [
+        "threat modeling",
+        "ai security",
+        "sbom",
+        "policy"
+      ],
+      "goals": [
+        "Learn",
+        "Meet connections"
+      ],
+      "focus_goal": "Learn",
+      "goal_answers": {
+        "Learn": "How are people using LLMs to prioritize CVEs without creating false confidence?",
+        "Meet connections": "I’d like to compare SBOM workflows and policy checks in CI."
+      },
+      "can_help": "SBOMs, policy checks, threat modeling",
+      "want_to_learn": "AI-assisted vuln prioritization"
+    },
+    {
+      "id": "llm-fbbd5960-017",
+      "theme": "platform",
+      "name": "Aarav Mehta",
+      "role": "Staff platform engineer",
+      "interests": [
+        "kubernetes",
+        "autoscaling",
+        "ci/cd",
+        "finops"
+      ],
+      "goals": [
+        "Learn",
+        "Share something I've learned"
+      ],
+      "focus_goal": "Learn",
+      "goal_answers": {
+        "Learn": "How are you running Kubernetes across multiple regions without making deploys a pain?",
+        "Share something I've learned": "I’ve tuned HPA and cluster autoscaling for a big catalog platform, and we cut noisy scale-ups a lot."
+      },
+      "can_help": "kubernetes autoscaling",
+      "want_to_learn": "multi-region cluster ops"
+    },
+    {
+      "id": "llm-fbbd5960-018",
+      "theme": "security",
+      "name": "Maya Okafor",
+      "role": "Application security lead",
+      "interests": [
+        "vulnerability mgmt",
+        "llm tooling",
+        "sbom",
+        "triage"
+      ],
+      "goals": [
+        "Learn",
+        "Meet connections"
+      ],
+      "focus_goal": "Learn",
+      "goal_answers": {
+        "Learn": "How are teams using AI to rank vulns without drowning in false positives?",
+        "Meet connections": "I’d love to compare notes on vuln triage, SBOMs, and shipping secure-by-default pipelines."
+      },
+      "can_help": "vuln prioritization",
+      "want_to_learn": "ai-assisted triage workflows"
+    },
+    {
+      "id": "llm-fbbd5960-019",
+      "theme": "data-ml",
+      "name": "Lucas Ferreira",
+      "role": "Machine learning engineer",
+      "interests": [
+        "search",
+        "rag",
+        "llm eval",
+        "ranking"
+      ],
+      "goals": [
+        "Share something I've learned",
+        "Meet connections"
+      ],
+      "focus_goal": "Share something I've learned",
+      "goal_answers": {
+        "Share something I've learned": "I built a simple eval loop for RAG answers with golden sets and human spot checks, and it helped us catch regressions fast.",
+        "Meet connections": "I’m happy to talk retrieval quality, prompt tests, and what actually moves offline metrics."
+      },
+      "can_help": "rag evaluation",
+      "want_to_learn": "better retrieval debugging"
+    },
+    {
+      "id": "llm-fbbd5960-020",
+      "theme": "observability",
+      "name": "Nadia Petrov",
+      "role": "SRE",
+      "interests": [
+        "incident response",
+        "alerts",
+        "logs",
+        "tracing"
+      ],
+      "goals": [
+        "Learn",
+        "Share something I've learned",
+        "Meet connections"
+      ],
+      "focus_goal": "Share something I've learned",
+      "goal_answers": {
+        "Learn": "How are other teams using traces and logs together during a live incident?",
+        "Share something I've learned": "I’ve run a few rough incident reviews and learned that simpler alerts plus clearer ownership saves us every time.",
+        "Meet connections": "I enjoy swapping war stories about paging, runbooks, and postmortems."
+      },
+      "can_help": "incident response",
+      "want_to_learn": "better alert routing"
+    },
+    {
+      "id": "llm-fbbd5960-021",
+      "theme": "frontend",
+      "name": "Jules Kim",
+      "role": "Senior frontend engineer",
+      "interests": [
+        "web performance",
+        "accessibility",
+        "react",
+        "core web vitals"
+      ],
+      "goals": [
+        "Learn",
+        "Share something I've learned"
+      ],
+      "focus_goal": "Learn",
+      "goal_answers": {
+        "Learn": "How are you keeping accessibility solid while still chasing better Core Web Vitals?",
+        "Share something I've learned": "I’ve shipped a bunch of perf fixes like image preloading, smaller bundles, and better hydration timing."
+      },
+      "can_help": "web performance",
+      "want_to_learn": "a11y at scale"
+    },
+    {
+      "id": "llm-fbbd5960-022",
+      "theme": "oss",
+      "name": "Elena Rossi",
+      "role": "Open source program manager",
+      "interests": [
+        "maintainers",
+        "community",
+        "governance",
+        "release ops"
+      ],
+      "goals": [
+        "Meet connections",
+        "Share something I've learned"
+      ],
+      "focus_goal": "Meet connections",
+      "goal_answers": {
+        "Share something I've learned": "I’ve helped a project move from ad hoc reviews to a clearer maintainer rotation and release process.",
+        "Meet connections": "I like talking about burnout, contribution funnels, and keeping communities healthy."
+      },
+      "can_help": "maintainer workflows",
+      "want_to_learn": "community governance"
+    },
+    {
+      "id": "llm-fbbd5960-023",
+      "theme": "bridge",
+      "name": "Samir Haddad",
+      "role": "Platform reliability engineer",
+      "interests": [
+        "kubernetes",
+        "observability",
+        "rollouts",
+        "capacity"
+      ],
+      "goals": [
+        "Learn",
+        "Share something I've learned"
+      ],
+      "focus_goal": "Learn",
+      "goal_answers": {
+        "Learn": "How do you use service-level signals to decide when a rollout is actually safe?",
+        "Share something I've learned": "I’ve used cluster autoscaling and rollout guards to keep checkout traffic steady during peaks."
+      },
+      "can_help": "rollout safety",
+      "want_to_learn": "incident metrics"
+    },
+    {
+      "id": "llm-fbbd5960-024",
+      "theme": "bridge",
+      "name": "Talia Brooks",
+      "role": "Developer experience engineer",
+      "interests": [
+        "accessibility",
+        "open source",
+        "docs",
+        "design systems"
+      ],
+      "goals": [
+        "Learn",
+        "Meet connections"
+      ],
+      "focus_goal": "Meet connections",
+      "goal_answers": {
+        "Learn": "How do small OSS teams keep accessibility fixes from getting stuck in review?",
+        "Meet connections": "I’d love to compare notes on docs, design systems, and welcoming contributors."
+      },
+      "can_help": "devex and docs",
+      "want_to_learn": "a11y in open source"
+    },
+    {
+      "id": "llm-fbbd5960-025",
+      "theme": "security",
+      "name": "Ethan Cole",
+      "role": "Application security engineer",
+      "interests": [
+        "llm security",
+        "sast",
+        "vulnerability triage",
+        "devsecops"
+      ],
+      "goals": [
+        "Learn",
+        "Share something I've learned"
+      ],
+      "focus_goal": "Share something I've learned",
+      "goal_answers": {
+        "Learn": "How are teams using AI to cut through vuln backlogs without drowning devs in false positives?",
+        "Share something I've learned": "I’ve built a workflow that ranks findings by exploitability and repo context, and it helped cut triage time a lot."
+      },
+      "can_help": "vuln prioritization workflows",
+      "want_to_learn": "ai-assisted triage"
+    },
+    {
+      "id": "llm-fbbd5960-026",
+      "theme": "data-ml",
+      "name": "Sana Iyer",
+      "role": "ML platform engineer",
+      "interests": [
+        "rag",
+        "search relevance",
+        "llm evals",
+        "vector databases"
+      ],
+      "goals": [
+        "Learn",
+        "Meet connections"
+      ],
+      "focus_goal": "Learn",
+      "goal_answers": {
+        "Learn": "What eval setup are people using to measure RAG quality beyond simple hit rate?",
+        "Meet connections": "I’d like to talk with folks who are tuning retrieval and prompt evals in production."
+      },
+      "can_help": "rag eval harnesses",
+      "want_to_learn": "search quality metrics"
+    },
+    {
+      "id": "llm-fbbd5960-027",
+      "theme": "observability",
+      "name": "Luis Romero",
+      "role": "Site reliability engineer",
+      "interests": [
+        "incident response",
+        "tracing",
+        "log pipelines",
+        "alerting"
+      ],
+      "goals": [
+        "Learn",
+        "Share something I've learned",
+        "Meet connections"
+      ],
+      "focus_goal": "Meet connections",
+      "goal_answers": {
+        "Learn": "How are teams keeping alert fatigue down while still catching weird failures fast?",
+        "Share something I've learned": "I’ve helped set up incident timelines that combine traces, logs, and on-call notes in one place.",
+        "Meet connections": "I enjoy talking through postmortems and what actually improved after the fire drill."
+      },
+      "can_help": "incident timelines and alert tuning",
+      "want_to_learn": "better on-call workflows"
+    },
+    {
+      "id": "llm-fbbd5960-028",
+      "theme": "frontend",
+      "name": "Harper Nguyen",
+      "role": "Senior frontend engineer",
+      "interests": [
+        "web vitals",
+        "accessibility",
+        "react",
+        "design systems"
+      ],
+      "goals": [
+        "Learn",
+        "Share something I've learned"
+      ],
+      "focus_goal": "Learn",
+      "goal_answers": {
+        "Learn": "What are people doing now to keep Core Web Vitals solid on big React apps with lots of third-party scripts?",
+        "Share something I've learned": "I’ve shipped a bunch of accessibility fixes for forms and modals, and I can share the practical stuff that stuck."
+      },
+      "can_help": "web vitals and a11y fixes",
+      "want_to_learn": "performance budgets"
+    },
+    {
+      "id": "llm-fbbd5960-029",
+      "theme": "oss",
+      "name": "Noah Patel",
+      "role": "Open source maintainer",
+      "interests": [
+        "community",
+        "governance",
+        "docs",
+        "release management"
+      ],
+      "goals": [
+        "Learn",
+        "Meet connections"
+      ],
+      "focus_goal": "Learn",
+      "goal_answers": {
+        "Learn": "How do maintainers keep a healthy contributor funnel without burning out the core team?",
+        "Meet connections": "I’d love to chat about community building, issue triage, and sustainable maintainer habits."
+      },
+      "can_help": "maintainer workflow and docs",
+      "want_to_learn": "community governance"
+    },
+    {
+      "id": "llm-fbbd5960-030",
+      "theme": "bridge",
+      "name": "Amina Hassan",
+      "role": "Cloud architect",
+      "interests": [
+        "kubernetes",
+        "llm ops",
+        "platform guardrails",
+        "resilience"
+      ],
+      "goals": [
+        "Learn",
+        "Share something I've learned",
+        "Meet connections"
+      ],
+      "focus_goal": "Learn",
+      "goal_answers": {
+        "Learn": "How are teams evaluating LLM answers in incident response tools without creating new blind spots?",
+        "Share something I've learned": "I’ve rolled out guardrails for platform teams that need both reliability and fast delivery.",
+        "Meet connections": "I’m open to swapping ideas across platform, observability, and ML tooling."
+      },
+      "can_help": "platform guardrails and reliability",
+      "want_to_learn": "llm eval in ops tools"
+    },
+    {
+      "id": "llm-fbbd5960-031",
+      "theme": "bridge",
+      "name": "Jonah Brooks",
+      "role": "Developer relations engineer",
+      "interests": [
+        "open source",
+        "frontend tooling",
+        "community",
+        "docs"
+      ],
+      "goals": [
+        "Learn",
+        "Share something I've learned",
+        "Meet connections"
+      ],
+      "focus_goal": "Share something I've learned",
+      "goal_answers": {
+        "Learn": "How do people make open source docs actually discoverable for new contributors?",
+        "Share something I've learned": "I’ve helped teams turn internal frontend tooling into public-friendly OSS projects with better onboarding.",
+        "Meet connections": "I like connecting maintainers with frontend folks who care about docs and usability."
+      },
+      "can_help": "developer onboarding and docs",
+      "want_to_learn": "community-led growth"
+    },
+    {
+      "id": "llm-fbbd5960-032",
+      "theme": "platform",
+      "name": "Anika Rao",
+      "role": "Senior platform engineer",
+      "interests": [
+        "kubernetes",
+        "gitops",
+        "multi-region"
+      ],
+      "goals": [
+        "Learn",
+        "Share something I've learned"
+      ],
+      "focus_goal": "Learn",
+      "goal_answers": {
+        "Learn": "How are people handling cluster upgrades with almost zero downtime at peak traffic?",
+        "Share something I've learned": "I’ve rolled out GitOps for multi-cluster deployments and tuned ingress autoscaling for flash sales."
+      },
+      "can_help": "gitops rollout patterns",
+      "want_to_learn": "safer kubernetes upgrades"
+    },
+    {
+      "id": "llm-fbbd5960-033",
+      "theme": "platform",
+      "name": "Mateo Silva",
+      "role": "Principal infrastructure engineer",
+      "interests": [
+        "containers",
+        "service mesh",
+        "cost"
+      ],
+      "goals": [
+        "Meet connections",
+        "Share something I've learned"
+      ],
+      "focus_goal": "Share something I've learned",
+      "goal_answers": {
+        "Share something I've learned": "I’ve worked on rightsizing node pools and cutting cloud spend without hurting checkout latency.",
+        "Meet connections": "k8s scheduling, autoscaling, and cost tradeoffs"
+      },
+      "can_help": "node pool optimization",
+      "want_to_learn": "capacity planning at e-commerce scale"
+    },
+    {
+      "id": "llm-fbbd5960-034",
+      "theme": "security",
+      "name": "Hana Kim",
+      "role": "Application security engineer",
+      "interests": [
+        "ai security",
+        "sast",
+        "vuln triage"
+      ],
+      "goals": [
+        "Learn",
+        "Meet connections"
+      ],
+      "focus_goal": "Learn",
+      "goal_answers": {
+        "Learn": "How are teams using AI to prioritize vuln fixes without drowning in false positives?",
+        "Meet connections": "AI-assisted vuln management and developer workflows"
+      },
+      "can_help": "vulnerability triage workflows",
+      "want_to_learn": "better risk-based prioritization"
+    },
+    {
+      "id": "llm-fbbd5960-035",
+      "theme": "data-ml",
+      "name": "Owen Mercer",
+      "role": "ML platform engineer",
+      "interests": [
+        "rag",
+        "search",
+        "evaluation"
+      ],
+      "goals": [
+        "Learn",
+        "Share something I've learned",
+        "Meet connections"
+      ],
+      "focus_goal": "Share something I've learned",
+      "goal_answers": {
+        "Learn": "What eval setups are people using to measure RAG quality beyond simple exact match?",
+        "Share something I've learned": "I’ve built offline evals with golden datasets plus human review for search ranking and RAG answers.",
+        "Meet connections": "LLM evals, retrieval, and feedback loops"
+      },
+      "can_help": "rag evaluation harnesses",
+      "want_to_learn": "guardrails for production llm apps"
+    },
+    {
+      "id": "llm-fbbd5960-036",
+      "theme": "observability",
+      "name": "Jules Moreau",
+      "role": "Site reliability engineer",
+      "interests": [
+        "tracing",
+        "incident response",
+        "alerting"
+      ],
+      "goals": [
+        "Learn",
+        "Share something I've learned"
+      ],
+      "focus_goal": "Learn",
+      "goal_answers": {
+        "Learn": "How do you keep incident timelines clean when logs, traces, and chats are all noisy?",
+        "Share something I've learned": "I’ve set up service-level alerts and postmortem templates that make on-call a lot less chaotic."
+      },
+      "can_help": "incident response process",
+      "want_to_learn": "better signal in noisy telemetry"
+    },
+    {
+      "id": "llm-fbbd5960-037",
+      "theme": "frontend",
+      "name": "Priya Menon",
+      "role": "Frontend performance engineer",
+      "interests": [
+        "core web vitals",
+        "accessibility",
+        "react"
+      ],
+      "goals": [
+        "Learn",
+        "Meet connections"
+      ],
+      "focus_goal": "Meet connections",
+      "goal_answers": {
+        "Learn": "How are teams making accessibility checks part of the normal React release flow?",
+        "Meet connections": "web perf budgets, a11y testing, and design handoff"
+      },
+      "can_help": "web vitals tuning",
+      "want_to_learn": "practical accessibility workflows"
+    },
+    {
+      "id": "llm-fbbd5960-038",
+      "theme": "bridge",
+      "name": "Ethan Park",
+      "role": "Platform engineer",
+      "interests": [
+        "kubernetes",
+        "telemetry",
+        "devex"
+      ],
+      "goals": [
+        "Learn",
+        "Share something I've learned"
+      ],
+      "focus_goal": "Learn",
+      "goal_answers": {
+        "Learn": "How do incident teams keep a blameless postmortem moving while services are still unstable?",
+        "Share something I've learned": "I’ve improved cluster rollouts with GitOps and progressive delivery to reduce risky deploys."
+      },
+      "can_help": "progressive delivery on kubernetes",
+      "want_to_learn": "incident response under pressure"
+    },
+    {
+      "id": "llm-fbbd5960-039",
+      "theme": "bridge",
+      "name": "Sofia Alvarez",
+      "role": "Developer experience engineer",
+      "interests": [
+        "open source",
+        "community",
+        "tooling"
+      ],
+      "goals": [
+        "Learn",
+        "Share something I've learned",
+        "Meet connections"
+      ],
+      "focus_goal": "Share something I've learned",
+      "goal_answers": {
+        "Learn": "How do maintainers keep an open source project healthy without burning out?",
+        "Share something I've learned": "I’ve helped run an internal OSS program and learned a lot about issue triage and contributor onboarding.",
+        "Meet connections": "community health, docs, and first-time contributors"
+      },
+      "can_help": "community onboarding",
+      "want_to_learn": "maintainer workflows and repo governance"
+    }
+  ]
+}

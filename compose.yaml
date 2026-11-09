@@ -12,6 +12,14 @@ x-python: &python
     OTEL_SERVICE_NAMESPACE: ${OTEL_SERVICE_NAMESPACE:-tabletalk}
     OTEL_PYTHON_INSTRUMENTATION_ELASTICSEARCH_CAPTURE_SEARCH_QUERY: omit
     PYTHONPYCACHEPREFIX: /tmp/tabletalk-pycache
+    # Optional AI notes and personas. Keys stay in the services, never the browser.
+    LLM_PROVIDER: ${LLM_PROVIDER:-none}
+    LLM_MODEL: ${LLM_MODEL:-}
+    LLM_REASONING_EFFORT: ${LLM_REASONING_EFFORT:-}
+    EMBEDDING_MODEL: ${EMBEDDING_MODEL:-}
+    LLM_BASE_URL: ${LLM_BASE_URL:-}
+    ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     WATCHFILES_FORCE_POLLING: "true"
   volumes:
     - ./services:/app/services
@@ -47,6 +55,10 @@ services:
     environment:
       <<: *python-environment
       OTEL_SERVICE_NAME: tabletalk-api
+      # Optional: when set, /host and host API calls require this token.
+      HOST_TOKEN: ${HOST_TOKEN:-}
+      # How often the cutoff watcher checks for automatic matching.
+      AUTO_MATCH_POLL_SECONDS: ${AUTO_MATCH_POLL_SECONDS:-10}
     command:
       - uvicorn
       - tabletalk_api.main:app

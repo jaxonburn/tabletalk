@@ -59,7 +59,8 @@ async def test_index_settings_respect_serverless_managed_shards(
     client.indices = Mock()
     client.indices.create = AsyncMock()
     await storage.ensure_indices(client)
-    assert client.indices.create.await_count == 2
+    # Attendees, plans, events, runs, and attendee tokens.
+    assert client.indices.create.await_count == 5
     assert all(
         call.kwargs["settings"] == settings for call in client.indices.create.await_args_list
     )
@@ -122,8 +123,9 @@ async def test_reading_stored_legacy_attendees_preserves_profiles(
 async def test_reading_saved_legacy_plan_normalizes_nested_members(
     legacy_documents: list[dict[str, object]],
 ) -> None:
+    members = legacy_documents[:2]
     document = {
-        "groups": [{"id": "table-1", "members": legacy_documents[:2], "reasons": []}],
+        "groups": [{"id": "table-1", "members": members, "reasons": []}],
         "generated_at": "2026-11-09T14:00:00+00:00",
         "attendee_count": 2,
     }
