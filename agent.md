@@ -18,9 +18,10 @@ integrations; Dash0 is the observability destination.
   the conference API by Vite in development. The browser never accesses
   Elasticsearch or the matching service directly. `src/main.tsx` picks the page
   from the path: `/host` loads the host view (`HostApp.tsx`), `/classic` loads the
-  original single-page app (`App.tsx`), and everything else (including
-  `/user-onboarding`) loads the attendee app in `src/onboarding/`. Each page is a
-  separate chunk with its own stylesheet.
+  original single-page app (`App.tsx`), `/organizer-workflow` (or
+  `/event-organizer`) loads the organizer prototype in `src/organizer/`, and
+  everything else (including `/user-onboarding`) loads the attendee app in
+  `src/onboarding/`. Each page is a separate chunk with its own stylesheet.
 - `src/onboarding/`: the onboarding template's HTML and CSS, kept as close to the
   original as possible, plus `onboarding.ts`, which drives the markup and talks to
   the API: `GET /api/conference` for event details and goal copy, `POST
@@ -28,7 +29,15 @@ integrations; Dash0 is the observability destination.
   the waiting room (every 15 s, plus "Check for my table now"), and `POST
   /api/me/check-in`. Goal IDs are the API's goal values; element IDs use slugs
   (`learn`, `share`, `connect`). Both attendee pages share the token in
-  `src/attendeeToken.ts`.
+  `src/attendeeToken.ts`. The template's base page set a fixed 26px line height
+  and the system font on `p`/`li`; `onboarding.css` reproduces both in its base
+  block so the page matches the template.
+- `src/organizer/`: the organizer template, built the same way (template HTML
+  and CSS, script ported to TypeScript). Events, tables, matching, publishing,
+  and updates are simulated in memory and send nothing to the API. Its
+  `buildSeatingPlan` only demonstrates seat allocation and `signupUrl` points to
+  a reserved example domain; the host API (`/api/host/...`) covers the same
+  setup, run, and publish steps when it's time to connect it.
 - `services/api`: public FastAPI API. Owns enrollment, the cutoff, host event
   setup, fictional demo data, draft runs, and publishing. Calls the matching
   service over HTTPX. An in-process lock serializes mutations in the single API
@@ -281,7 +290,8 @@ single worker) creates a run at the cutoff and, with `auto_publish`, publishes i
   first.
 
 Seed profiles are fictional. Each browser keeps its attendee token in
-`localStorage` (with a "Forget this device" option). Anyone holding the token can
+`localStorage` (with a "Forget me on this device" link in the attendee app's
+footer). Anyone holding the token can
 see that person's table.
 
 Before real-attendee or production deployment: authentication, organizer authorization,

@@ -1,12 +1,13 @@
 /**
  * Behavior for the attendee app (/, also /user-onboarding), ported from the
- * TableTalk attendee prototype (tabletalk-tikatika.html) and wired to the API.
+ * TableTalk attendee prototype (tabletalk-protchibit.html) and wired to the API.
  *
  * Step 1: name, title, and company. Step 2: interests. Step 3: pick one or more
  * lunch goals, star one as the focus, and answer a question for each selected
  * goal. Saving enrolls you (POST /api/enrollments) or updates your answers
  * (PUT /api/me). Then a waiting room that checks /api/me until the host
- * publishes tables, your table reveal, check-in, and conversation starters.
+ * publishes tables, your table reveal (with everyone at the table), check-in,
+ * and conversation starters.
  */
 
 import {
@@ -793,7 +794,6 @@ export function initOnboarding(root: HTMLElement): () => void {
   function editAnswers() {
     if (!editable()) return;
     window.clearTimeout(matchTimer);
-    closeNav();
     show("about", { back: true });
   }
   on(q("edit"), "click", editAnswers);
@@ -813,9 +813,11 @@ export function initOnboarding(root: HTMLElement): () => void {
 
   function applyEventDetails() {
     const name = conference?.name ?? "TableTalk";
+    const hours = me?.assignment?.lunch_time || conference?.lunch_time || "";
     q("event").textContent = `${name} / lunch`.toUpperCase();
-    q("nav-event-name").textContent = name.toUpperCase();
-    q("nav-event-when").textContent = when();
+    q("event-time-name").textContent = `${name} / lunch`.toUpperCase();
+    q("event-time-hours").textContent = hours;
+    q("event-time-hours").hidden = !hours;
     const closed = !token && conference && conference.status !== "open";
     q("closed-notice").hidden = !closed;
     q("closed-notice").textContent = closed
@@ -826,7 +828,7 @@ export function initOnboarding(root: HTMLElement): () => void {
     button("continue").disabled = Boolean(closed);
     button("submit").disabled = Boolean(closed);
     q("submit-label").textContent = me ? "Save my changes" : "Save my spot";
-    q("nav-edit").hidden = !me || !editable();
+    q("forget").hidden = !token;
   }
 
   async function loadConference() {
@@ -981,16 +983,10 @@ export function initOnboarding(root: HTMLElement): () => void {
     q("seated-number").textContent = number;
     q("done-number").textContent = number;
     q("vibe").textContent = (a.table_name || `Table ${number}`).toUpperCase();
-    const tagline = a.tagline?.length
-      ? a.tagline
-      : ["Good people.", "Good talk."];
-    q("theme").replaceChildren(
-      document.createTextNode(tagline[0] ?? ""),
-      document.createElement("br"),
-      document.createTextNode(tagline[1] ?? ""),
-    );
     q("table-when").textContent = when();
     q("table-when").hidden = !when();
+    q("roster-foot").textContent = when();
+    q("roster-foot").hidden = !when();
 
     const mates = a.tablemates;
     const slots = [
@@ -1056,6 +1052,105 @@ export function initOnboarding(root: HTMLElement): () => void {
     show("assigned");
   }
 
+  // "See everyone": the whole table in a dialog
+
+  const roster = q<HTMLDialogElement>("roster");
+
+  function openSeats(a: MyAssignment) {
+    return a.seats ? Math.max(0, a.seats - a.tablemates.length - 1) : 0;
+  }
+
+  function rosterRow(
+    className: string,
+    avatar: string | Node,
+    name: string,
+    line: string,
+  ) {
+    const row = el("li", {
+      class: className ? `ta-roster-row ${className}` : "ta-roster-row",
+    });
+    const badge = el("span", {
+      class: "ta-roster-avatar",
+      "aria-hidden": "true",
+    });
+    const text = el("span", { class: "ta-roster-text" });
+    if (typeof avatar === "string") badge.textContent = avatar;
+    else badge.append(avatar);
+    text.append(el("b", {}, name), el("small", {}, line));
+    row.append(badge, text);
+    return row;
+  }
+
+  function renderRoster(status: MyStatus, a: MyAssignment) {
+    const number = tableNumber(a);
+    const open = openSeats(a);
+    const people = a.tablemates.length + 1;
+    q("roster-eyebrow").textContent = a.table_name
+      ? `TABLE ${number} · ${a.table_name.toUpperCase()}`
+      : `TABLE ${number}`;
+    q("roster-sub").textContent =
+      `${people} ${people === 1 ? "person" : "people"}${
+        open ? ` · ${open} open seat${open === 1 ? "" : "s"}` : ""
+      }`;
+    const { attendee } = status;
+    const chair = root.querySelector(".ta-you .ta-avatar svg");
+    const rows = [
+      rosterRow(
+        "ta-roster-you",
+        chair ? chair.cloneNode(true) : "",
+        attendee.name,
+        [
+          `You${status.checked_in_at ? " · checked in" : ""}`,
+          attendee.role,
+          attendee.company,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+      ),
+      ...a.tablemates.map((mate) =>
+        rosterRow(
+          "",
+          initials(mate.first_name),
+          mate.first_name,
+          [mate.role, mate.company].filter(Boolean).join(" · "),
+        ),
+      ),
+    ];
+    if (open) {
+      rows.push(
+        rosterRow(
+          "ta-roster-open",
+          "+",
+          open === 1 ? "Open seat" : `${open} open seats`,
+          open === 1 ? "Saved for a walk-in" : "Saved for walk-ins",
+        ),
+      );
+    }
+    q("roster-list").replaceChildren(...rows);
+  }
+
+  function closeRoster() {
+    if (typeof roster.close === "function") {
+      roster.close();
+    } else {
+      roster.removeAttribute("open");
+      q("see-table").focus();
+    }
+  }
+
+  on(q("see-table"), "click", () => {
+    if (!me?.assignment) return;
+    renderRoster(me, me.assignment);
+    if (typeof roster.showModal === "function") roster.showModal();
+    else roster.setAttribute("open", "");
+  });
+  on(q("roster-close"), "click", closeRoster);
+  // A click on the dialog itself (not its content) is a click on the backdrop.
+  on<MouseEvent>(roster, "click", (e) => {
+    if (e.target === roster) closeRoster();
+  });
+  on(roster, "close", () => q("see-table").focus());
+
   on(q("reveal-table"), "click", () => {
     if (!me?.assignment) return;
     button("reveal-table").disabled = true;
@@ -1109,13 +1204,20 @@ export function initOnboarding(root: HTMLElement): () => void {
     const a = me?.assignment;
     if (!attendee || !a) return;
     const [first, ...rest] = attendee.name.split(" ");
+    const last = rest.length ? rest[rest.length - 1] : "";
     q("ticket-number").textContent = tableNumber(a);
     q("confirmed-name").textContent = first;
     q("ticket-name").textContent = [first, ...rest].join(" ");
-    q("ticket-role").textContent = [attendee.role, attendee.company]
-      .filter(Boolean)
-      .join(" · ");
-    q("ticket-role").hidden = !attendee.role && !attendee.company;
+    q("ticket-initials").textContent =
+      `${first?.[0] ?? ""}${last[0] ?? ""}`.toUpperCase() || "?";
+    const lines: [string, string | undefined, string][] = [
+      ["ticket-title", attendee.role, "No role added"],
+      ["ticket-company", attendee.company, "No company added"],
+    ];
+    for (const [id, value, empty] of lines) {
+      q(id).textContent = value || empty;
+      q(id).classList.toggle("ta-empty", !value);
+    }
     q("when").textContent = when();
     q("summary-goal").textContent = `Your goals: ${goals
       .filter((g) => attendee.goals.includes(g.id))
@@ -1171,37 +1273,199 @@ export function initOnboarding(root: HTMLElement): () => void {
     if (me?.checked_in_at) openTicket();
   });
 
+  // The conversation card: flip it over, then deal another
+
+  let flipping = false;
+
   function resetQuestion() {
     questionRevealed = false;
+    q("question").classList.remove("ta-revealed");
     q("question-text").textContent = "Break the ice.";
     q("question-hint").textContent =
       "Tap to turn over your table’s conversation card ↗";
     q("question-actions").hidden = true;
   }
 
-  function reveal() {
+  function fillQuestion() {
     if (!questions.length) return;
-    questionRevealed = true;
     q("question-text").textContent = questions[questionIndex];
     q("question-hint").textContent =
       "Go around the table. Start wherever you like.";
-    q("question-actions").hidden = false;
+  }
+
+  function shine() {
+    const streak = q("question").querySelector(".ta-q-shine");
+    if (!streak) return;
     animate(
-      q("question"),
-      [{ transform: "rotateY(-9deg)" }, { transform: "rotateY(0deg)" }],
-      { duration: 280 },
+      streak,
+      [
+        { transform: "translateX(-120%)", opacity: 0 },
+        { opacity: 1, offset: 0.2 },
+        { transform: "translateX(120%)", opacity: 0 },
+      ],
+      { duration: 900, easing: "ease-out" },
     );
   }
-  on(q("question"), "click", () => {
-    if (!questionRevealed) reveal();
-  });
-  on(q("another"), "click", () => {
-    if (!questions.length) return;
-    questionIndex = (questionIndex + 1) % questions.length;
-    reveal();
-  });
 
-  // Header: logo, event label, and menu
+  function burst() {
+    const colors = ["#FFFFFF", "#9DC0FF", "#5B95F7"];
+    for (let i = 0; i < 16; i++) {
+      const s = el("span", i % 2 ? { class: "ta-q-dot" } : {});
+      s.style.background = colors[i % 3];
+      q("q-burst").append(s);
+      const angle = (i / 16) * Math.PI * 2 + ((i * 37) % 10) / 25;
+      const distance = 120 + ((i * 53) % 70);
+      const dx = Math.cos(angle) * distance * 1.25;
+      const dy = Math.sin(angle) * distance * 0.75;
+      const a = animate(
+        s,
+        [
+          { transform: "translate(0,0) scale(.3) rotate(45deg)", opacity: 0 },
+          { opacity: 1, offset: 0.12 },
+          {
+            transform: `translate(${dx}px,${dy}px) scale(1) rotate(${225 + i * 40}deg)`,
+            opacity: 0,
+          },
+        ],
+        {
+          duration: 720 + (i % 4) * 110,
+          easing: "cubic-bezier(.15,.7,.3,1)",
+          fill: "forwards",
+        },
+      );
+      if (a) a.onfinish = () => s.remove();
+      else s.remove();
+    }
+  }
+
+  function reveal() {
+    if (!questions.length) return;
+    questionRevealed = true;
+    q("question-actions").hidden = false;
+    const card = q("question");
+    card.classList.add("ta-revealed");
+    const half = animate(
+      card,
+      [
+        {
+          transform: "perspective(1000px) rotateY(0deg) scale(1)",
+          filter: "brightness(1)",
+        },
+        {
+          transform:
+            "perspective(1000px) rotateY(90deg) scale(1.06) translateY(-6px)",
+          filter: "brightness(1.6)",
+        },
+      ],
+      { duration: 230, easing: "cubic-bezier(.5,0,.9,.5)" },
+    );
+    if (!half) {
+      fillQuestion();
+      return;
+    }
+    flipping = true;
+    half.onfinish = () => {
+      if (signal.aborted) return;
+      fillQuestion();
+      const back = card.animate(
+        [
+          {
+            transform:
+              "perspective(1000px) rotateY(-90deg) scale(1.06) translateY(-6px)",
+            filter: "brightness(1.6)",
+          },
+          {
+            transform: "perspective(1000px) rotateY(12deg) scale(1.02)",
+            filter: "brightness(1.1)",
+            offset: 0.6,
+          },
+          {
+            transform: "perspective(1000px) rotateY(-4deg) scale(1)",
+            filter: "brightness(1)",
+            offset: 0.82,
+          },
+          {
+            transform: "perspective(1000px) rotateY(0deg) scale(1)",
+            filter: "brightness(1)",
+          },
+        ],
+        { duration: 640, easing: "cubic-bezier(.2,.7,.2,1)" },
+      );
+      card.animate(
+        [
+          {
+            boxShadow:
+              "0 0 0 0 rgba(157,192,255,.9),0 18px 44px rgba(30,110,243,.45)",
+          },
+          {
+            boxShadow:
+              "0 0 0 16px rgba(157,192,255,0),0 26px 80px rgba(30,110,243,.9)",
+            offset: 0.45,
+          },
+          {
+            boxShadow:
+              "0 0 0 0 rgba(157,192,255,0),0 18px 44px rgba(30,110,243,.45)",
+          },
+        ],
+        { duration: 1000, easing: "ease-out" },
+      );
+      burst();
+      shine();
+      back.onfinish = () => {
+        flipping = false;
+      };
+    };
+  }
+
+  function deal() {
+    if (flipping || !questions.length) return;
+    questionIndex = (questionIndex + 1) % questions.length;
+    const card = q("question");
+    const out = animate(
+      card,
+      [
+        { transform: "translate(0,0) rotate(0deg)", opacity: 1 },
+        { transform: "translate(70%,-14px) rotate(14deg)", opacity: 0 },
+      ],
+      { duration: 280, easing: "cubic-bezier(.5,0,.9,.4)", fill: "forwards" },
+    );
+    if (!out) {
+      fillQuestion();
+      return;
+    }
+    flipping = true;
+    out.onfinish = () => {
+      if (signal.aborted) return;
+      fillQuestion();
+      const dealIn = card.animate(
+        [
+          {
+            transform: "translate(-40px,40px) rotate(-8deg) scale(.9)",
+            opacity: 0,
+          },
+          {
+            transform: "translate(0,-6px) rotate(1.5deg) scale(1.01)",
+            opacity: 1,
+            offset: 0.7,
+          },
+          { transform: "translate(0,0) rotate(0deg) scale(1)", opacity: 1 },
+        ],
+        { duration: 480, easing: "cubic-bezier(.2,.7,.2,1)" },
+      );
+      out.cancel();
+      shine();
+      dealIn.onfinish = () => {
+        flipping = false;
+      };
+    };
+  }
+
+  on(q("question"), "click", () => {
+    if (!questionRevealed && !flipping) reveal();
+  });
+  on(q("another"), "click", deal);
+
+  // Header: logo, then the event name (onboarding) or event and lunch hours
 
   function updateBrand(name: Screen) {
     const can = Boolean(backFrom(name));
@@ -1215,7 +1479,6 @@ export function initOnboarding(root: HTMLElement): () => void {
   function goBack() {
     const prev = backFrom(current);
     if (!prev) return;
-    closeNav();
     if (prev === "waiting") renderWaiting();
     show(prev, { back: true });
   }
@@ -1224,30 +1487,8 @@ export function initOnboarding(root: HTMLElement): () => void {
   function setNav(name: Screen) {
     const onboarding = ONBOARDING.includes(name);
     q("event").hidden = !onboarding;
-    q("nav").hidden = onboarding;
-    closeNav();
+    q("event-time").hidden = onboarding;
   }
-
-  function openNav() {
-    q("nav-menu").hidden = false;
-    q("nav-button").setAttribute("aria-expanded", "true");
-    q("nav-button").setAttribute("aria-label", "Close menu");
-    (q("nav-edit").hidden ? q("nav-restart") : q("nav-edit")).focus();
-  }
-
-  function closeNav(returnFocus = false) {
-    if (q("nav-menu").hidden) return;
-    q("nav-menu").hidden = true;
-    q("nav-button").setAttribute("aria-expanded", "false");
-    q("nav-button").setAttribute("aria-label", "Menu");
-    if (returnFocus) q("nav-button").focus();
-  }
-
-  on(q("nav-button"), "click", () => {
-    if (q("nav-menu").hidden) openNav();
-    else closeNav(true);
-  });
-  on(q("nav-edit"), "click", editAnswers);
 
   function resetForm() {
     ["first-name", "last-name", "title", "company", "custom-interest"].forEach(
@@ -1303,23 +1544,15 @@ export function initOnboarding(root: HTMLElement): () => void {
     renderGoals();
   }
 
-  on(q("nav-restart"), "click", () => {
-    closeNav();
+  // Footer: "Forget me on this device" (shown once this device is signed up)
+
+  on(q("forget"), "click", () => {
     window.clearTimeout(matchTimer);
+    if (roster.open) closeRoster();
     forgetToken();
     resetForm();
     applyEventDetails();
     show("about", { back: true });
-  });
-
-  on<KeyboardEvent>(root, "keydown", (e) => {
-    if (e.key === "Escape" && !q("nav-menu").hidden) {
-      e.preventDefault();
-      closeNav(true);
-    }
-  });
-  on(document, "click", (e) => {
-    if (!q("nav").contains(e.target as Node)) closeNav();
   });
 
   // Start: show the form right away, then load the event and any saved enrollment.

@@ -155,6 +155,12 @@ function heading(name: RegExp) {
   return screen.getByRole("heading", { name });
 }
 
+function byId(id: string) {
+  const node = document.getElementById(`ta-${id}`);
+  if (!node) throw new Error(`Missing #ta-${id}`);
+  return node;
+}
+
 function completeAboutYou() {
   type(/First name/, "Ada");
   type(/Last name/, "Lovelace");
@@ -203,7 +209,9 @@ describe("attendee onboarding", () => {
   it("asks for a name, title, and an interest before moving on", async () => {
     await mount();
     expect(heading(/First, a proper/)).toBeTruthy();
-    expect(screen.getByText("CLOUD NATIVE HACKATHON / LUNCH")).toBeTruthy();
+    expect(byId("event").textContent).toBe("CLOUD NATIVE HACKATHON / LUNCH");
+    // The event and lunch hours badge replaces it after onboarding.
+    expect(byId("event-time").hidden).toBe(true);
     click(/Next: your interests/);
     expect(screen.getByText("Please add your first name.")).toBeTruthy();
     expect(screen.getByText(/Please add your title/)).toBeTruthy();
@@ -315,13 +323,21 @@ describe("attendee onboarding", () => {
     expect(screen.getByText(/Maya is building her first sales/)).toBeTruthy();
     expect(screen.getByText("2 open seats · saved for a walk-in")).toBeTruthy();
     expect(screen.getByText(/Founder · Acme/)).toBeTruthy();
+    expect(byId("event-time").hidden).toBe(false);
+    expect(byId("event-time-name").textContent).toBe(
+      "CLOUD NATIVE HACKATHON / LUNCH",
+    );
+    expect(byId("event-time-hours").textContent).toBe("12:30–1:15");
     click(/I’m seated at Table 08/);
 
     expect(
       (await screen.findByRole("heading", { name: /You’re in/ })).textContent,
     ).toMatch(/You’re in,\s*Ada\./);
     expect(seated).toBe(true);
-    expect(screen.getByText("Engineer · Analytical Engines")).toBeTruthy();
+    // The place card: initials, then the role and company on their own lines.
+    expect(byId("ticket-initials").textContent).toBe("AL");
+    expect(byId("ticket-title").textContent).toBe("Engineer");
+    expect(byId("ticket-company").textContent).toBe("Analytical Engines");
     expect(document.getElementById("ta-when")?.textContent).toBe(
       "12:30–1:15 · Hall B",
     );
@@ -333,6 +349,55 @@ describe("attendee onboarding", () => {
     expect(
       screen.getByText("What did you ship before you felt ready?"),
     ).toBeTruthy();
+  });
+
+  it("lists everyone at the table, with the open seats", async () => {
+    storage.setItem(ATTENDEE_TOKEN_KEY, "saved-token");
+    route("GET", "/api/me", () => json(status({ assignment }, "published")));
+    await mount();
+    await screen.findByRole("heading", { name: /Found for you/ });
+    const roster = byId("roster");
+    expect(roster.hasAttribute("open")).toBe(false);
+
+    click(/See everyone/);
+    expect(roster.hasAttribute("open")).toBe(true);
+    expect(byId("roster-eyebrow").textContent).toBe(
+      "TABLE 08 · THE BUILDERS' TABLE",
+    );
+    expect(byId("roster-sub").textContent).toBe("3 people · 2 open seats");
+    const rows = [...roster.querySelectorAll("li")].map((li) => [
+      // Your row shows the chair icon, so it has no letters.
+      li.querySelector(".ta-roster-avatar")?.textContent?.trim(),
+      li.querySelector("b")?.textContent,
+      li.querySelector("small")?.textContent,
+    ]);
+    expect(rows).toEqual([
+      ["", "Ada Lovelace", "You · Engineer · Analytical Engines"],
+      ["M", "Maya", "Founder · Acme"],
+      ["J", "Jordan", "Designer"],
+      ["+", "2 open seats", "Saved for walk-ins"],
+    ]);
+    expect(byId("roster-foot").textContent).toBe("12:30–1:15 · Hall B");
+
+    click("Close");
+    expect(roster.hasAttribute("open")).toBe(false);
+    expect(document.activeElement).toBe(byId("see-table"));
+  });
+
+  it("forgets this device from the footer", async () => {
+    storage.setItem(ATTENDEE_TOKEN_KEY, "saved-token");
+    route("GET", "/api/me", () => json(status()));
+    await mount();
+    await screen.findByRole("heading", { name: /is on its way/ });
+    expect(byId("forget").hidden).toBe(false);
+
+    click(/Forget me on this device/i);
+    expect(heading(/First, a proper/)).toBeTruthy();
+    expect(storage.getItem(ATTENDEE_TOKEN_KEY)).toBeNull();
+    expect(
+      (screen.getByLabelText(/First name/) as HTMLInputElement).value,
+    ).toBe("");
+    expect(byId("forget").hidden).toBe(true);
   });
 
   it("resumes an open enrollment and saves edits with PUT", async () => {
