@@ -11,10 +11,10 @@ resources:
 images:
   - name: tabletalk-web
     newName: ghcr.io/jaxonburn/tabletalk-web
-    newTag: pending
+    newTag: db1950ff5570acdf31cc85c520a77aafd47afa58
   - name: tabletalk-python
     newName: ghcr.io/jaxonburn/tabletalk-python
-    newTag: pending
+    newTag: db1950ff5570acdf31cc85c520a77aafd47afa58
 configMapGenerator:
   - name: tabletalk-runtime
     literals:
