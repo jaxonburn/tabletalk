@@ -30,17 +30,49 @@ You'll need Docker with Compose. Give Docker at least **4 GB of memory**.
 docker compose up --build -d
 ```
 
-Open **http://localhost:5173**. Enroll yourself using fictional details, click
-**Add demo attendees**, then **Make lunch groups**. Your table will be highlighted
-for the current page session.
+Open **http://localhost:5173** and enroll yourself using fictional details:
 
-Making groups closes enrollment for that lunch. Group generation and seeding are
-idempotent: repeating them doesn't create duplicate groups or seed profiles.
-Groups are saved in Elasticsearch and survive container restarts.
+1. Enter your name, role, and topics.
+2. Pick one or more of **Learn**, **Share**, or **Connect**, and answer the short
+   prompt for each one.
+3. If you picked more than one, choose today's focus.
+4. Click **Submit me for lunch**.
+
+You're then locked in. The page remembers you on this device, so it survives
+refreshes, and your table appears on its own once groups are published.
+
+Then open the host view at **http://localhost:5173/host**:
+
+1. **Set up the room:** choose numbered tables, seats per table, an enrollment
+   cutoff, and the smallest table allowed. Optionally, **match automatically at
+   the cutoff** and **publish the automatic run right away**.
+2. **Load 14 sample attendees** (three planted themes), then **Produce matches**.
+   Each run is a draft with its own seed, so you can compare several.
+3. **Review** a run: match-quality metrics compared with random seating, every
+   table's summary and starters, and a searchable list of every person with their
+   table, notes, and answers.
+4. **Publish** one run. Attendees then see their own table number, their
+   tablemates (first name, role, and interests), a 1–2 sentence "what you can
+   talk about", and personal conversation starters.
+
+With automatic matching on, the API's cutoff watcher does steps 2–4 for you right
+after the cutoff: it produces a run and publishes it, or leaves it as a draft for
+review. It runs once per cutoff, catches up if the API was down at the cutoff, and
+shows its result on the host page. Set the polling interval with
+`AUTO_MATCH_POLL_SECONDS` (default 10).
+
+Enrollment closes at the cutoff or when a run is published, whichever comes first.
+A run can't be published if someone enrolled after it was produced, so nobody is
+left without a seat. Publishing and seeding are idempotent. Everything is saved
+in Elasticsearch and survives container restarts.
+
+Host controls are open on a local stack. Set `HOST_TOKEN` in `.env` to require a
+token for the host view and host API.
 
 | Local URL | What's there |
 | --- | --- |
-| http://localhost:5173 | The app |
+| http://localhost:5173 | The attendee app |
+| http://localhost:5173/host | The host view: setup, runs, review, publish |
 | http://localhost:8000/docs | Conference API documentation |
 | http://localhost:8000/health | API, matching service, and Elasticsearch readiness |
 | http://localhost:9200 | Development Elasticsearch |
@@ -82,15 +114,108 @@ service** asks Elasticsearch for candidates, fills balanced tables, and saves th
 assignment. Elasticsearch is the core data layer for profiles and completed plans;
 there's no second database hiding the interesting work.
 
-The first version uses keyword relevance and structured filters, not an LLM.
-Conference and lunch slot are hard filters. Shared interests, complementary goals
-(learning/sharing or meeting connections), and offer/need text influence ranking. Assignment
-is a deterministic greedy heuristic, **not** a globally optimal matching algorithm.
-Explanations use actual topic, goal, and word overlap rather than generated claims.
+Seating uses keyword relevance and structured filters, not an LLM. Conference
+and lunch slot are hard filters. Elasticsearch scores how well every
+pair of attendees fits, using shared interests, complementary goals
+(learning/sharing or meeting connections), and Learn/Share/Connect answers. A
+seeded optimizer then seats everyone so tablemates fit well and nobody is
+stranded. It is deterministic and heuristic, **not** provably optimal. Each table
+gets a summary, conversation starters, and per-person notes that quote real
+overlaps rather than generated claims. Plans include quality metrics compared with
+random seating. See [`docs/matching-plan.md`](docs/matching-plan.md).
 
-Next, we can add embeddings and hybrid retrieval without moving search out of
-Elasticsearch. Future attendees could choose from recommendations rather than
-receiving a single group.
+### Optional AI notes and personas
+
+An LLM can rewrite each table's summary, starters, and per-person notes. It
+**never** chooses seats: runs with and without AI notes seat everyone identically.
+Each table is sent only its own people and the matcher's evidence. The model must
+return a strict JSON structure, and the notes are then checked:
+
+- the notes must cover exactly that table's people;
+- they must not name anyone from another table;
+- over-long text is clipped.
+
+Invalid output gets one retry, then that table keeps its template notes. A
+45-second overall deadline means a slow provider can't hold up the run.
+
+The same provider can also write fictional **personas** for testing. Each persona
+must pass the same validation as a real enrollment.
+
+To enable it, set these in `.env`, then restart the stack. The host view then
+shows AI toggles for notes and personas:
+
+```bash
+LLM_PROVIDER=anthropic          # or openai (any OpenAI-compatible API via LLM_BASE_URL)
+LLM_MODEL=<model id from your provider>
+ANTHROPIC_API_KEY=...           # or OPENAI_API_KEY
+```
+
+Keys stay in the Python services. The browser, telemetry, and logs never see
+them or the prompt text. With AI enabled, attendee answers are sent to the
+provider, and the enrollment form says so. Without a provider, everything uses
+templates.
+
+### Test data and measuring match quality
+
+The host view can load the 14-person sample or **generate** any number of
+fictional attendees. Generation works offline: a deterministic, seeded generator
+draws from six themes with complementary Learn/Share topics, and makes about 20%
+of people cross-theme "bridges". It can also use the AI provider. To save a
+dataset you can replay, or to measure quality against random seating:
+
+```bash
+uv run python scripts/generate_personas.py --count 40 --seed 7 --out personas.json
+uv run python scripts/evaluate_matching.py              # 5 seeds × 40 people
+uv run python scripts/evaluate_matching.py --file personas.json
+uv run python scripts/evaluate_matching.py --check      # CI regression guard
+```
+
+The evaluation reports the following, each next to the random-seating value:
+
+- average fit;
+- the weakest person's best match;
+- Learn coverage;
+- how well tables regroup each person's hidden theme (purity and adjusted Rand
+  index).
+
+### Semantic matching and the AI judge
+
+Set `EMBEDDING_MODEL` (e.g. `text-embedding-3-small`) with an `OPENAI_API_KEY` to
+add **hybrid retrieval** inside Elasticsearch.
+
+- **Vectors:** at match time, anyone without vectors gets three 512-dimension
+  `dense_vector` fields (learn, share, topic) stored on their attendee document.
+- **Topic tags:** with an LLM configured, attendees also get short canonical
+  topic tags, so "vuln triage" and "CVE prioritization" can line up.
+- **Caching:** both are computed once and reused across runs.
+- **Scoring:** each run blends BM25 keyword relevance with Elasticsearch kNN
+  similarity. The kNN step pairs one person's Learn answer with another's Share
+  answer, and compares topics.
+- **Fallback:** a provider failure falls back to BM25.
+- **Labelling:** the host page labels every run (`bm25`, `bm25+vectors+tags`)
+  and has a toggle to compare the modes.
+
+**Ask the AI judge** scores each table 1–5 for conversation potential and seats
+the same people at random for comparison. It is a coarse second opinion: it never
+changes seats, and repeat scores vary by about ±0.3.
+
+Measured on 39 LLM-written personas and the 14-person sample, hybrid improved how
+often each person's best match shares their theme (79%→86% and 83%→92%). It left
+whole-table theme recovery and the judge's score within noise of keyword-only.
+Details are in `docs/matching-plan.md` §11.
+
+Tested defaults: `LLM_MODEL=gpt-5.4-mini`, `LLM_REASONING_EFFORT=low`,
+`EMBEDDING_MODEL=text-embedding-3-small`. Approximate cost at list prices:
+
+| Action | Cost |
+| --- | --- |
+| A 25-table run with AI notes | about $0.09 |
+| Judging that run | about $0.05 |
+| 40 AI personas | about $0.10 |
+| Embeddings | fractions of a cent |
+
+Future attendees could choose from recommendations rather than receiving a single
+group.
 
 ## Observability, without setup friction
 
@@ -167,9 +292,10 @@ neither activates the app by itself.
 
 ## A hackathon demo, not a production deployment
 
-This version has one conference, one lunch slot, and a 100-attendee cap. Organizer
-controls and attendee profiles are intentionally public **within this local
-instance**. There is no authentication or authorization. Elasticsearch security
+This version has one conference, one lunch slot, and a 100-attendee cap. Attendee
+profiles are intentionally public **within this local instance**. Host controls are
+open unless the optional shared `HOST_TOKEN` is set, and there are no user accounts
+or per-attendee authorization. Elasticsearch security
 is disabled for development, published ports bind to localhost, and internal
 service/Collector ports are not published.
 

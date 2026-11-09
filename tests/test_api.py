@@ -1,37 +1,16 @@
-from collections.abc import Iterator
 from unittest.mock import AsyncMock, Mock
 
 import httpx
 import pytest
-from elasticsearch import AsyncElasticsearch
 from fastapi.testclient import TestClient
 from tabletalk_api import main
 from tabletalk_api.seed import seed_attendees
 from tabletalk_shared.models import MatchPlan
 
 
-@pytest.fixture
-def api(monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[TestClient, main.Services]]:
-    storage = Mock(spec=AsyncElasticsearch)
-    storage.create = AsyncMock()
-    storage.indices = Mock()
-    storage.indices.refresh = AsyncMock()
-    matcher = Mock(spec=httpx.AsyncClient)
-    matcher.request = AsyncMock()
-    services = main.Services(storage, matcher)
-    monkeypatch.setattr(main, "read_plan", AsyncMock(return_value=None))
-    monkeypatch.setattr(main, "validate_capacity", AsyncMock(return_value=True))
-    monkeypatch.setattr(main, "list_attendees", AsyncMock(return_value=[]))
-    main.app.dependency_overrides[main.get_services] = lambda: services
-    try:
-        yield TestClient(main.app), services
-    finally:
-        main.app.dependency_overrides.clear()
-
-
 def test_enrollment_stores_validated_profile(api: tuple[TestClient, main.Services]) -> None:
     client, services = api
-    data = seed_attendees()[0].model_dump(exclude={"id", "conference_id"})
+    data = seed_attendees()[0].model_dump(exclude={"id", "conference_id", "topic_tags"})
     response = client.post("/api/enrollments", json=data)
     assert response.status_code == 201
     assert response.json()["name"] == data["name"]
@@ -47,7 +26,7 @@ def test_completed_plan_closes_enrollment(
     monkeypatch.setattr(main, "read_plan", AsyncMock(return_value=Mock(spec=MatchPlan)))
     response = client.post(
         "/api/enrollments",
-        json=seed_attendees()[0].model_dump(exclude={"id", "conference_id"}),
+        json=seed_attendees()[0].model_dump(exclude={"id", "conference_id", "topic_tags"}),
     )
     assert response.status_code == 409
     assert "Enrollment is closed" in response.json()["detail"]

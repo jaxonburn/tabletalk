@@ -1,0 +1,215 @@
+{
+  "description": "Fictional attendees for three themed tables plus two bridge profiles. The theme label is hidden evaluation data and is never used for matching.",
+  "tables": [
+    { "number": 1, "seats": 5 },
+    { "number": 2, "seats": 5 },
+    { "number": 3, "seats": 5 }
+  ],
+  "attendees": [
+    {
+      "id": "fx-01",
+      "theme": "platform",
+      "name": "Priya Nair",
+      "role": "Staff platform engineer",
+      "interests": ["kubernetes", "autoscaling", "platform engineering"],
+      "goals": ["Share something I've learned", "Meet connections"],
+      "focus_goal": "Share something I've learned",
+      "goal_answers": {
+        "Share something I've learned": "We run thousands of Kubernetes pods for a large e-commerce site and cut flash-sale scaling incidents by autoscaling on queue depth instead of CPU.",
+        "Meet connections": "Happy to swap stories about running platform teams and on-call during retail traffic spikes."
+      },
+      "can_help": "Kubernetes autoscaling for spiky e-commerce traffic",
+      "want_to_learn": "How other platform teams measure developer experience"
+    },
+    {
+      "id": "fx-02",
+      "theme": "platform",
+      "name": "Marcus Webb",
+      "role": "Backend engineer",
+      "interests": ["kubernetes", "autoscaling", "go"],
+      "goals": ["Learn"],
+      "focus_goal": "Learn",
+      "goal_answers": {
+        "Learn": "How do you autoscale Kubernetes services when traffic spikes 10x during flash sales without paying for idle nodes?"
+      },
+      "can_help": "Go microservices and load testing",
+      "want_to_learn": "Kubernetes autoscaling and node cost control"
+    },
+    {
+      "id": "fx-03",
+      "theme": "platform",
+      "name": "Elena Petrova",
+      "role": "Site reliability engineer",
+      "interests": ["kubernetes", "cost optimization", "sre"],
+      "goals": ["Learn", "Share something I've learned"],
+      "focus_goal": "Share something I've learned",
+      "goal_answers": {
+        "Learn": "How are teams measuring developer experience on an internal platform, beyond DORA metrics?",
+        "Share something I've learned": "I replaced the cluster autoscaler with Karpenter and cut Kubernetes node costs by about a third."
+      },
+      "can_help": "Karpenter and Kubernetes node cost optimization",
+      "want_to_learn": "Developer experience metrics for internal platforms"
+    },
+    {
+      "id": "fx-04",
+      "theme": "platform",
+      "name": "Diego Alvarez",
+      "role": "Platform product manager",
+      "interests": ["platform engineering", "developer experience", "backstage"],
+      "goals": ["Meet connections", "Learn"],
+      "focus_goal": "Meet connections",
+      "goal_answers": {
+        "Meet connections": "I'd love to compare notes on golden paths, internal developer platforms, and developer experience.",
+        "Learn": "How do platform teams decide what belongs in a golden path and what stays flexible?"
+      },
+      "can_help": "Running Backstage as an internal developer portal and measuring developer experience",
+      "want_to_learn": "Golden path design for platform teams"
+    },
+    {
+      "id": "fx-05",
+      "theme": "security",
+      "name": "Aisha Bello",
+      "role": "Application security lead",
+      "interests": ["application security", "vulnerability management", "ai"],
+      "goals": ["Share something I've learned", "Meet connections"],
+      "focus_goal": "Share something I've learned",
+      "goal_answers": {
+        "Share something I've learned": "We cut median time to patch critical vulnerabilities from three weeks to four days with AI-generated fix pull requests and human review.",
+        "Meet connections": "Keen to meet people wrestling with vulnerability backlogs and software supply chain security."
+      },
+      "can_help": "AI-assisted vulnerability patching workflows",
+      "want_to_learn": "Software supply chain security with SBOMs"
+    },
+    {
+      "id": "fx-06",
+      "theme": "security",
+      "name": "Tom Lindqvist",
+      "role": "DevSecOps engineer",
+      "interests": ["vulnerability management", "devsecops", "ai"],
+      "goals": ["Learn"],
+      "focus_goal": "Learn",
+      "goal_answers": {
+        "Learn": "How are teams reducing time to patch vulnerabilities in the age of AI without drowning reviewers in generated pull requests?"
+      },
+      "can_help": "Security scanning in CI pipelines",
+      "want_to_learn": "AI-assisted vulnerability patching"
+    },
+    {
+      "id": "fx-07",
+      "theme": "security",
+      "name": "Grace Okafor",
+      "role": "Security engineer",
+      "interests": ["supply chain security", "sbom", "containers"],
+      "goals": ["Share something I've learned", "Learn"],
+      "focus_goal": "Share something I've learned",
+      "goal_answers": {
+        "Share something I've learned": "I rolled out SBOM generation and Sigstore signing for every container image we ship.",
+        "Learn": "How do you triage hundreds of CVE alerts a week and decide which vulnerabilities actually matter?"
+      },
+      "can_help": "SBOMs, Sigstore, and container image signing",
+      "want_to_learn": "Prioritizing CVE alerts and vulnerability triage"
+    },
+    {
+      "id": "fx-08",
+      "theme": "security",
+      "name": "Hiro Tanaka",
+      "role": "Engineering manager",
+      "interests": ["devsecops", "engineering management", "vulnerability management"],
+      "goals": ["Meet connections"],
+      "focus_goal": "Meet connections",
+      "goal_answers": {
+        "Meet connections": "I'd enjoy talking about how security and product teams share ownership of fixing vulnerabilities and triaging CVE alerts."
+      },
+      "can_help": "Getting product teams to own vulnerability triage and security fixes",
+      "want_to_learn": "Vulnerability patching at scale"
+    },
+    {
+      "id": "fx-09",
+      "theme": "data-ml",
+      "name": "Sofia Rossi",
+      "role": "Machine learning engineer",
+      "interests": ["rag", "elasticsearch", "llm"],
+      "goals": ["Share something I've learned"],
+      "focus_goal": "Share something I've learned",
+      "goal_answers": {
+        "Share something I've learned": "We shipped a RAG assistant over two million support tickets using Elasticsearch hybrid search with BM25 plus vectors."
+      },
+      "can_help": "Hybrid vector search and RAG retrieval with Elasticsearch",
+      "want_to_learn": "Evaluating LLM answer quality"
+    },
+    {
+      "id": "fx-10",
+      "theme": "data-ml",
+      "name": "Ben Carter",
+      "role": "Data engineer",
+      "interests": ["data pipelines", "rag", "evaluation"],
+      "goals": ["Learn", "Meet connections"],
+      "focus_goal": "Learn",
+      "goal_answers": {
+        "Learn": "How do you evaluate retrieval quality for a RAG system before it goes to production?",
+        "Meet connections": "Happy to chat about data pipelines that feed search indexes and LLM apps."
+      },
+      "can_help": "Streaming data pipelines with Kafka and fresh embeddings",
+      "want_to_learn": "Retrieval evaluation for RAG"
+    },
+    {
+      "id": "fx-11",
+      "theme": "data-ml",
+      "name": "Mei Lin",
+      "role": "Research engineer",
+      "interests": ["llm evaluation", "embeddings", "python"],
+      "goals": ["Share something I've learned", "Learn"],
+      "focus_goal": "Share something I've learned",
+      "goal_answers": {
+        "Share something I've learned": "I built an LLM evaluation harness with golden datasets and LLM-as-judge scoring for retrieval and answer quality.",
+        "Learn": "How are people keeping embeddings fresh when the source data changes every hour?"
+      },
+      "can_help": "LLM evaluation harnesses, golden datasets, and retrieval evaluation",
+      "want_to_learn": "Keeping embeddings fresh in streaming data pipelines"
+    },
+    {
+      "id": "fx-12",
+      "theme": "data-ml",
+      "name": "Omar Haddad",
+      "role": "Search engineer",
+      "interests": ["elasticsearch", "search relevance", "embeddings"],
+      "goals": ["Learn"],
+      "focus_goal": "Learn",
+      "goal_answers": {
+        "Learn": "When does adding vector search actually beat a well-tuned BM25 keyword setup?"
+      },
+      "can_help": "Tuning BM25 keyword search relevance",
+      "want_to_learn": "Hybrid vector and keyword search"
+    },
+    {
+      "id": "fx-13",
+      "theme": "bridge",
+      "name": "Nadia Kowalski",
+      "role": "Platform security engineer",
+      "interests": ["kubernetes", "supply chain security", "policy as code"],
+      "goals": ["Share something I've learned", "Learn"],
+      "focus_goal": "Share something I've learned",
+      "goal_answers": {
+        "Share something I've learned": "I enforce Kubernetes admission policies with Kyverno so unsigned or vulnerable container images never reach production.",
+        "Learn": "How do platform teams roll out security guardrails without slowing developers down?"
+      },
+      "can_help": "Kubernetes admission policies, Kyverno, and container image signing",
+      "want_to_learn": "Security guardrails on internal developer platforms"
+    },
+    {
+      "id": "fx-14",
+      "theme": "bridge",
+      "name": "Lucas Ferreira",
+      "role": "MLOps engineer",
+      "interests": ["mlops", "kubernetes", "embeddings"],
+      "goals": ["Learn", "Share something I've learned"],
+      "focus_goal": "Learn",
+      "goal_answers": {
+        "Learn": "How do you autoscale GPU inference workloads on Kubernetes without wasting expensive nodes?",
+        "Share something I've learned": "I've served embedding models on Kubernetes with KServe for a search team."
+      },
+      "can_help": "Serving embedding models on Kubernetes with KServe",
+      "want_to_learn": "GPU autoscaling on Kubernetes"
+    }
+  ]
+}

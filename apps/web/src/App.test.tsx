@@ -5,8 +5,8 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import App from "./App";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import App, { ATTENDEE_TOKEN_KEY } from "./App";
 import { request, type ConferenceState } from "./api";
 
 const conference: ConferenceState = {
@@ -26,9 +26,53 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-function fillEnrollmentForm() {
+class MemoryStorage {
+  private values = new Map<string, string>();
+  getItem(key: string) {
+    return this.values.get(key) ?? null;
+  }
+  setItem(key: string, value: string) {
+    this.values.set(key, value);
+  }
+  removeItem(key: string) {
+    this.values.delete(key);
+  }
+  clear() {
+    this.values.clear();
+  }
+}
+
+let storage: MemoryStorage;
+
+beforeEach(() => {
+  storage = new MemoryStorage();
+  vi.stubGlobal("localStorage", storage);
+});
+
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
+
+const prompts = {
+  Learn: { question: "What do you want to learn?", example_hint: "e.g. K8s" },
+  "Share something I've learned": {
+    question: "What could you share?",
+    example_hint: "e.g. tracing",
+  },
+  "Meet connections": {
+    question: "What would you enjoy discussing?",
+    example_hint: "e.g. platforms",
+  },
+};
+const openConference: ConferenceState = {
+  ...conference,
+  goal_prompts: prompts,
+};
+
+function fillBasics() {
   fireEvent.change(screen.getByLabelText("Your name"), {
-    target: { value: "Alex" },
+    target: { value: "Alex Chen" },
   });
   fireEvent.change(screen.getByLabelText("What do you do?"), {
     target: { value: "Engineer" },
@@ -36,82 +80,210 @@ function fillEnrollmentForm() {
   fireEvent.change(screen.getByLabelText(/What could you talk/), {
     target: { value: "Kubernetes, Python" },
   });
-  fireEvent.change(screen.getByLabelText("What you can offer"), {
-    target: { value: "Python APIs" },
-  });
-  fireEvent.change(screen.getByLabelText("What you're looking for"), {
-    target: { value: "Kubernetes" },
-  });
 }
 
-afterEach(() => {
-  cleanup();
-  vi.unstubAllGlobals();
-});
+const enrolledAttendee = {
+  id: "me-1",
+  conference_id: "demo",
+  name: "Alex Chen",
+  role: "Engineer",
+  interests: ["kubernetes"],
+  goals: ["Learn" as const],
+  focus_goal: "Learn" as const,
+  goal_answers: { Learn: "How do you autoscale?" },
+  lunch_slot: "day-1-lunch",
+};
 
 describe("enrollment", () => {
-  it("allows selecting and deselecting multiple lunch goals and submits them", async () => {
-    const fetchMock = vi
-      .fn<typeof fetch>()
-      .mockImplementation(async () => jsonResponse(conference));
+  it("asks one question per selected goal and submits the onboarding answers", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input) =>
+      String(input) === "/api/me"
+        ? jsonResponse({
+            attendee: enrolledAttendee,
+            status: "open",
+            enrollment_closes_at: null,
+            assignment: null,
+          })
+        : jsonResponse(openConference),
+    );
     vi.stubGlobal("fetch", fetchMock);
     render(<App />);
     await screen.findByText("A little about you.");
+    fillBasics();
     fireEvent.click(screen.getByRole("button", { name: "I want to learn" }));
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "I want to share something I've learned",
-      }),
-    );
     const connections = screen.getByRole("button", {
       name: "I just want to make connections",
     });
     fireEvent.click(connections);
     expect(connections.getAttribute("aria-pressed")).toBe("true");
-    fireEvent.click(connections);
-    expect(connections.getAttribute("aria-pressed")).toBe("false");
-    fireEvent.click(connections);
-    expect(screen.queryByRole("button", { name: "Hire" })).toBeNull();
-    fillEnrollmentForm();
-    fetchMock.mockResolvedValueOnce(jsonResponse({ id: "new-attendee" }, 201));
+    fireEvent.change(
+      screen.getByLabelText(/Learn: What do you want to learn/),
+      {
+        target: { value: "How do you autoscale?" },
+      },
+    );
+    fireEvent.change(
+      screen.getByLabelText(/Connect: What would you enjoy discussing/),
+      { target: { value: "Platform teams" } },
+    );
+    fireEvent.click(screen.getByRole("radio", { name: "Connect" }));
+    fetchMock.mockImplementationOnce(async () =>
+      jsonResponse(
+        { ...enrolledAttendee, attendee_token: "secret-token" },
+        201,
+      ),
+    );
     fireEvent.click(
-      screen.getByRole("button", { name: /Find my lunch people/ }),
+      screen.getByRole("button", { name: /Submit me for lunch/ }),
     );
 
-    await screen.findByText(/You're on the list!/);
+    await screen.findByText(/You're in for lunch, Alex/);
     const enrollmentRequest = fetchMock.mock.calls.find(
       ([path]) => path === "/api/enrollments",
     )?.[1];
-    expect(enrollmentRequest?.method).toBe("POST");
-    const enrollmentBody: unknown = JSON.parse(String(enrollmentRequest?.body));
-    expect(enrollmentBody).toEqual({
-      name: "Alex",
+    expect(JSON.parse(String(enrollmentRequest?.body))).toEqual({
+      name: "Alex Chen",
       role: "Engineer",
       interests: ["Kubernetes", "Python"],
-      goals: ["Learn", "Share something I've learned", "Meet connections"],
-      can_help: "Python APIs",
-      want_to_learn: "Kubernetes",
       lunch_slot: "day-1-lunch",
+      goals: ["Learn", "Meet connections"],
+      focus_goal: "Meet connections",
+      goal_answers: {
+        Learn: "How do you autoscale?",
+        "Meet connections": "Platform teams",
+      },
     });
+    expect(storage.getItem(ATTENDEE_TOKEN_KEY)).toBe("secret-token");
+    const meCall = fetchMock.mock.calls.find(([path]) => path === "/api/me");
+    expect(
+      (meCall?.[1]?.headers as Record<string, string>)["X-Attendee-Token"],
+    ).toBe("secret-token");
   });
 
-  it("requires at least one lunch goal before enrolling", async () => {
+  it("requires a goal and an answer for each selected goal", async () => {
     const fetchMock = vi
       .fn<typeof fetch>()
-      .mockImplementation(async () => jsonResponse(conference));
+      .mockImplementation(async () => jsonResponse(openConference));
     vi.stubGlobal("fetch", fetchMock);
     render(<App />);
     await screen.findByText("A little about you.");
-    fillEnrollmentForm();
+    fillBasics();
     fireEvent.click(
-      screen.getByRole("button", { name: /Find my lunch people/ }),
+      screen.getByRole("button", { name: /Submit me for lunch/ }),
     );
     expect((await screen.findByRole("alert")).textContent).toContain(
       "Please select at least one lunch goal.",
     );
+    fireEvent.click(screen.getByRole("button", { name: "I want to learn" }));
+    fireEvent.submit(
+      screen
+        .getByRole("button", { name: /Submit me for lunch/ })
+        .closest("form")!,
+    );
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "Please answer: Learn.",
+    );
     expect(
       fetchMock.mock.calls.some(([path]) => path === "/api/enrollments"),
     ).toBe(false);
+  });
+
+  it("shows a returning attendee their table after publishing", async () => {
+    storage.setItem(ATTENDEE_TOKEN_KEY, "saved-token");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockImplementation(async (input) =>
+        String(input) === "/api/me"
+          ? jsonResponse({
+              attendee: enrolledAttendee,
+              status: "published",
+              enrollment_closes_at: null,
+              assignment: {
+                table_number: 7,
+                tablemates: [
+                  { first_name: "Sam", role: "SRE", interests: ["tracing"] },
+                ],
+                summary: "Sam can help you explore autoscaling.",
+                starters: ["Ask Sam how they approached autoscaling."],
+                table_summary: "Common ground in kubernetes.",
+                table_starters: [],
+                narrative_source: "template",
+              },
+            })
+          : jsonResponse(openConference),
+      ),
+    );
+    render(<App />);
+    expect(await screen.findByText("You're at Table 7.")).toBeTruthy();
+    expect(
+      screen.getByText("Sam can help you explore autoscaling."),
+    ).toBeTruthy();
+    expect(
+      screen.getByText("Ask Sam how they approached autoscaling."),
+    ).toBeTruthy();
+    expect(screen.queryByLabelText("Your name")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Forget this device/ }));
+    expect(storage.getItem(ATTENDEE_TOKEN_KEY)).toBeNull();
+  });
+
+  it("never brings back a forgotten attendee from an in-flight refresh", async () => {
+    storage.setItem(ATTENDEE_TOKEN_KEY, "saved-token");
+    const seated = {
+      attendee: enrolledAttendee,
+      status: "published",
+      enrollment_closes_at: null,
+      assignment: {
+        table_number: 7,
+        tablemates: [],
+        summary: "Your table.",
+        starters: [],
+        table_summary: "",
+        table_starters: [],
+        narrative_source: "template",
+      },
+    };
+    let release: (response: Response) => void = () => undefined;
+    let meCalls = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockImplementation(async (input) => {
+        if (String(input) !== "/api/me") return jsonResponse(openConference);
+        meCalls += 1;
+        if (meCalls === 1) return jsonResponse(seated);
+        return new Promise<Response>((resolve) => {
+          release = resolve;
+        });
+      }),
+    );
+    render(<App />);
+    await screen.findByText("You're at Table 7.");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Refresh the guest list" }),
+    );
+    await waitFor(() => expect(meCalls).toBe(2));
+    fireEvent.click(screen.getByRole("button", { name: /Forget this device/ }));
+    expect(await screen.findByLabelText("Your name")).toBeTruthy();
+    release(jsonResponse(seated));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(screen.queryByText("You're at Table 7.")).toBeNull();
+    expect(storage.getItem(ATTENDEE_TOKEN_KEY)).toBeNull();
+  });
+
+  it("forgets a token the server no longer recognizes", async () => {
+    storage.setItem(ATTENDEE_TOKEN_KEY, "stale-token");
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn<typeof fetch>()
+        .mockImplementation(async (input) =>
+          String(input) === "/api/me"
+            ? jsonResponse({ detail: "Unknown" }, 401)
+            : jsonResponse(openConference),
+        ),
+    );
+    render(<App />);
+    expect(await screen.findByText("A little about you.")).toBeTruthy();
+    await waitFor(() => expect(storage.getItem(ATTENDEE_TOKEN_KEY)).toBeNull());
   });
 
   it("shows loading failures and allows reconnecting", async () => {
@@ -139,5 +311,56 @@ describe("API errors", () => {
     await expect(request("/api/conference")).rejects.toThrow(
       "The request failed (502)",
     );
+  });
+});
+
+describe("lunch groups", () => {
+  it("shows each table's number, summary, and conversation starters", async () => {
+    const member = {
+      id: "fx-01",
+      conference_id: "demo",
+      name: "Priya Nair",
+      role: "Platform engineer",
+      interests: ["kubernetes"],
+      goals: ["Learn" as const],
+      can_help: "Autoscaling",
+      want_to_learn: "Developer experience",
+      lunch_slot: "day-1-lunch",
+    };
+    const planned: ConferenceState = {
+      ...conference,
+      attendees: [member, { ...member, id: "fx-02", name: "Marcus Webb" }],
+      plan: {
+        attendee_count: 2,
+        generated_at: "2026-11-09T18:40:00Z",
+        groups: [
+          {
+            id: "table-7",
+            table_number: 7,
+            members: [member, { ...member, id: "fx-02", name: "Marcus Webb" }],
+            reasons: [
+              { attendee_ids: ["fx-01", "fx-02"], text: "Detailed reason." },
+            ],
+            summary: "This table has common ground in kubernetes.",
+            starters: ["Marcus asks: how do you autoscale for flash sales?"],
+            member_notes: [],
+            narrative_source: "template",
+          },
+        ],
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async () => jsonResponse(planned)),
+    );
+    render(<App />);
+    expect(await screen.findByText("Table 7")).toBeTruthy();
+    expect(
+      screen.getByText("This table has common ground in kubernetes."),
+    ).toBeTruthy();
+    expect(
+      screen.getByText("Marcus asks: how do you autoscale for flash sales?"),
+    ).toBeTruthy();
+    expect(screen.queryByText("Detailed reason.")).toBeNull();
   });
 });

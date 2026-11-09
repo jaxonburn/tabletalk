@@ -52,8 +52,9 @@ async def test_reading_stored_legacy_attendees_preserves_profiles(
 async def test_reading_saved_legacy_plan_normalizes_nested_members(
     legacy_documents: list[dict[str, object]],
 ) -> None:
+    members = legacy_documents[:2]
     document = {
-        "groups": [{"id": "table-1", "members": legacy_documents[:2], "reasons": []}],
+        "groups": [{"id": "table-1", "members": members, "reasons": []}],
         "generated_at": "2026-11-09T14:00:00+00:00",
         "attendee_count": 2,
     }
@@ -64,7 +65,7 @@ async def test_reading_saved_legacy_plan_normalizes_nested_members(
     assert plan.groups[0].members[0].goals == ["Learn", "Meet connections"]
     assert plan.groups[0].members[1].goals == ["Meet connections"]
     assert plan.groups[0].id == "table-1"
-    assert document["groups"][0]["members"][0]["goals"] == ["Learn", "Meet peers"]
+    assert members[0]["goals"] == ["Learn", "Meet peers"]
 
 
 def test_unknown_stored_goal_is_not_silently_reinterpreted(
