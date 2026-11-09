@@ -4,8 +4,9 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 from tabletalk_api import main
+from tabletalk_api.observability import DashboardMetrics
 from tabletalk_api.seed import seed_attendees
-from tabletalk_shared.models import MatchPlan
+from tabletalk_shared.models import EventConfig, MatchPlan
 
 
 def test_enrollment_stores_validated_profile(api: tuple[TestClient, main.Services]) -> None:
@@ -17,6 +18,20 @@ def test_enrollment_stores_validated_profile(api: tuple[TestClient, main.Service
     assert response.json()["id"]
     assert isinstance(services.elasticsearch.create, AsyncMock)
     services.elasticsearch.create.assert_awaited_once()
+
+
+@pytest.mark.parametrize("path", ["/api/conference", "/api/host/state"])
+def test_polling_refreshes_dashboard_event_snapshot(
+    api: tuple[TestClient, main.Services], monkeypatch: pytest.MonkeyPatch, path: str
+) -> None:
+    client, _ = api
+    attendees = seed_attendees()
+    telemetry = Mock(spec=DashboardMetrics)
+    monkeypatch.setattr(main, "dashboard_metrics", telemetry)
+    monkeypatch.setattr(main, "list_attendees", AsyncMock(return_value=attendees))
+    monkeypatch.setattr(main, "list_runs", AsyncMock(return_value=[]))
+    assert client.get(path).status_code == 200
+    telemetry.record_event.assert_called_once_with(len(attendees), EventConfig(), published=False)
 
 
 def test_public_readiness_identifies_both_backend_revisions(

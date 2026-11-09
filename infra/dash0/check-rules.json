@@ -1,0 +1,95 @@
+{
+  "items": [
+    {
+      "name": "TableTalk | Attendees unassigned after cutoff",
+      "expression": "max by(service_name)({otel_metric_name=\"tabletalk.event.unassigned\",service_name=\"tabletalk-api\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"}) > $__threshold and on(service_name) max by(service_name)({otel_metric_name=\"tabletalk.event.cutoff_timestamp\",service_name=\"tabletalk-api\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"}) > 0 and on(service_name) (time() - max by(service_name)({otel_metric_name=\"tabletalk.event.cutoff_timestamp\",service_name=\"tabletalk-api\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"})) > 120 and on(service_name) (time() - max by(service_name)({otel_metric_name=\"tabletalk.event.snapshot_timestamp\",service_name=\"tabletalk-api\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"})) < 120",
+      "thresholds": { "failed": 0 },
+      "interval": "1m",
+      "for": "1m",
+      "enabled": true,
+      "labels": { "team": "tabletalk", "category": "assignment" },
+      "annotations": {
+        "summary": "TableTalk has {{ $value }} attendees without a published assignment",
+        "description": "Enrollment cutoff passed more than 2 minutes ago and attendees remain absent from the published plan. Drafts are not published assignments. Check host state and matching errors; produce and review a current draft before publishing. Do not silently reseat attendees. A fresh snapshot is required; absent metrics do not trigger this check."
+      }
+    },
+    {
+      "name": "TableTalk | Published singleton table",
+      "expression": "max by(service_name)({otel_metric_name=\"tabletalk.event.singleton_tables\",service_name=\"tabletalk-api\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"}) > $__threshold and on(service_name) (time() - max by(service_name)({otel_metric_name=\"tabletalk.event.snapshot_timestamp\",service_name=\"tabletalk-api\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"})) < 120",
+      "thresholds": { "failed": 0 },
+      "interval": "1m",
+      "for": "0s",
+      "enabled": true,
+      "labels": { "team": "tabletalk", "category": "assignment" },
+      "annotations": {
+        "summary": "TableTalk has {{ $value }} published singleton tables",
+        "description": "A published table contains exactly one person. Normal matching validation should prevent this. Investigate stored plan integrity and release history. Require organizer approval before changing any published assignment; do not dump attendee profiles into logs or agent prompts."
+      }
+    },
+    {
+      "name": "TableTalk | Invalid seating plan rejected",
+      "expression": "sum by(service_name)({otel_metric_name=\"tabletalk.matching.invalid_plans\",service_name=\"tabletalk-matcher\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"}) > $__threshold",
+      "thresholds": { "failed": 0 },
+      "interval": "1m",
+      "for": "0s",
+      "enabled": true,
+      "labels": { "team": "tabletalk", "category": "matching" },
+      "annotations": {
+        "summary": "TableTalk rejected {{ $value }} invalid seating plans since matcher restart",
+        "description": "Seating invariant validation rejected a generated plan. No assignments were returned for that attempt. Investigate matching.build_plan traces and matcher errors. This check intentionally stays failed while the current matcher process has any rejected plans; fix the defect and deploy a corrected matcher. Ordinary user-input/layout 409 errors are not counted."
+      }
+    },
+    {
+      "name": "TableTalk | Automatic matching failed",
+      "expression": "max by(service_name)({otel_metric_name=\"tabletalk.event.auto_match_failed\",service_name=\"tabletalk-api\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"}) > $__threshold and on(service_name) (time() - max by(service_name)({otel_metric_name=\"tabletalk.event.snapshot_timestamp\",service_name=\"tabletalk-api\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"})) < 120",
+      "thresholds": { "failed": 0 },
+      "interval": "1m",
+      "for": "0s",
+      "enabled": true,
+      "labels": { "team": "tabletalk", "category": "automation" },
+      "annotations": {
+        "summary": "TableTalk automatic matching failed at the current cutoff",
+        "description": "The stored automatic-match outcome for the current enabled cutoff is failed and no plan is published. Inspect the host page for the recorded reason. Automatic matching does not retry the same cutoff: an organizer must review and recover manually. Failures for old cutoffs or disabled automation do not trigger this check."
+      }
+    },
+    {
+      "name": "TableTalk | Deployment replicas unavailable",
+      "expression": "(max by(k8s_deployment_name)({otel_metric_name=\"kube_deployment_spec_replicas\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\",k8s_namespace_name=\"team-tabletalk\"}) - max by(k8s_deployment_name)({otel_metric_name=\"kube_deployment_status_replicas_available\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\",k8s_namespace_name=\"team-tabletalk\"})) > $__threshold",
+      "thresholds": { "failed": 0 },
+      "interval": "1m",
+      "for": "1m",
+      "enabled": true,
+      "labels": { "team": "tabletalk", "category": "infrastructure" },
+      "annotations": {
+        "summary": "TableTalk deployment {{ $labels.k8s_deployment_name }} is missing {{ $value }} replicas",
+        "description": "Available replicas stayed below desired replicas for at least 1 minute. Inspect rollout, readiness, pod events, and logs in namespace team-tabletalk. A brief Recreate rollout can cause a temporary gap. Never scale the API above one replica: its mutation coordination is process-local."
+      }
+    },
+    {
+      "name": "TableTalk | Assignment telemetry stale",
+      "expression": "(time() - max by(service_name)({otel_metric_name=\"tabletalk.event.snapshot_timestamp\",service_name=\"tabletalk-api\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"})) > $__threshold and on(service_name) (time() - max by(service_name)(timestamp({otel_metric_name=\"tabletalk.event.snapshot_timestamp\",service_name=\"tabletalk-api\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"}))) < 120",
+      "thresholds": { "failed": 120 },
+      "interval": "1m",
+      "for": "1m",
+      "enabled": true,
+      "labels": { "team": "tabletalk", "category": "telemetry" },
+      "annotations": {
+        "summary": "TableTalk is reporting an outdated assignment-health snapshot",
+        "description": "Recently received measurements report a last successful assignment snapshot more than 2 minutes old, sustained for 1 minute. This detects a stuck snapshot refresh while telemetry is still arriving. Absent metrics or no measurements received within 2 minutes do not trigger this check. Check the API background loop and Elasticsearch access. A quiet check does not prove everyone is seated."
+      }
+    },
+    {
+      "name": "TableTalk | Slow successful matching runs",
+      "expression": "histogram_quantile(0.95,sum by(service_name,retrieval)(increase({otel_metric_name=\"tabletalk.matching.duration\",service_name=\"tabletalk-api\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"}[15m]))) > $__threshold and on(service_name,retrieval) histogram_count(sum by(service_name,retrieval)(increase({otel_metric_name=\"tabletalk.matching.duration\",service_name=\"tabletalk-api\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"}[15m]))) >= 3",
+      "thresholds": { "failed": 30 },
+      "interval": "1m",
+      "for": "1m",
+      "enabled": true,
+      "labels": { "team": "tabletalk", "category": "performance" },
+      "annotations": {
+        "summary": "TableTalk {{ $labels.retrieval }} matching p95 is {{ $value }} seconds",
+        "description": "Successful saved runs exceeded a provisional 30-second p95 threshold over 15 minutes, with at least 3 observations in the window. Tune this threshold from your normal runs before enabling. Inspect affinity, enrichment, optimizer, and persistence timing. Failed or still-running attempts are not included; this is not a request-availability SLO."
+      }
+    }
+  ]
+}

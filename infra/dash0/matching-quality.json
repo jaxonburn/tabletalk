@@ -1,0 +1,348 @@
+{
+  "apiVersion": "perses.dev/v1alpha1",
+  "kind": "PersesDashboard",
+  "metadata": { "name": "tabletalk-matching-quality" },
+  "spec": {
+    "display": {
+      "name": "TableTalk | Matching Quality",
+      "description": "Actual saved-run quality versus random seating, Learn coverage, seating completeness, and table size. No AI notes or AI judge required."
+    },
+    "duration": "1h",
+    "refreshInterval": "10s",
+    "panels": {
+      "context": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Useful connections, not just successful HTTP responses"
+          },
+          "plugin": {
+            "kind": "Markdown",
+            "spec": {
+              "text": "**Measured from successfully saved plans, not AI ratings.** Scores are heuristic, not attendee satisfaction. Each run's random baseline averages 20 shuffles of the same people with the same table sizes.\n\nCharts show cumulative per-run means since API restart, separated by actual retrieval mode; different datasets are not controlled experiments. Learn coverage has no observation when no learners are present. Publish only after comparing drafts: publishing closes further matching for this lunch. Cluster: `tabletalk`, environment: `radar`."
+            }
+          }
+        }
+      },
+      "samples": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "Scored runs since API restart" },
+          "plugin": {
+            "kind": "StatChart",
+            "spec": {
+              "calculation": "instant",
+              "format": { "unit": "decimal", "decimalPlaces": 0 }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "histogram_count(sum({otel_metric_name=\"tabletalk.matching.pair_affinity\",strategy=\"matched\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"}))",
+                    "seriesNameFormat": "Scored runs"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "pair-score": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "Mean matched pair fit" },
+          "plugin": {
+            "kind": "StatChart",
+            "spec": {
+              "calculation": "instant",
+              "format": { "unit": "percent-decimal", "decimalPlaces": 1 }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "histogram_avg(sum({otel_metric_name=\"tabletalk.matching.pair_affinity\",strategy=\"matched\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"}))",
+                    "seriesNameFormat": "Matched fit"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "uplift": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Fit gain over random (percentage points)",
+            "description": "Difference of per-run mean scores, not a relative percentage improvement."
+          },
+          "plugin": {
+            "kind": "StatChart",
+            "spec": {
+              "calculation": "instant",
+              "format": { "unit": "decimal", "decimalPlaces": 1 }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "100 * (histogram_avg(sum({otel_metric_name=\"tabletalk.matching.pair_affinity\",strategy=\"matched\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"})) - histogram_avg(sum({otel_metric_name=\"tabletalk.matching.pair_affinity\",strategy=\"random\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"})))",
+                    "seriesNameFormat": "Percentage points"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "learn": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Mean Learn coverage",
+            "description": "Mean per-run fraction of learners with a teaching overlap at their table. Runs without learners are excluded, not recorded as zero."
+          },
+          "plugin": {
+            "kind": "StatChart",
+            "spec": {
+              "calculation": "instant",
+              "format": { "unit": "percent-decimal", "decimalPlaces": 1 }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "histogram_avg(sum({otel_metric_name=\"tabletalk.matching.learn_coverage\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"}))",
+                    "seriesNameFormat": "Learn coverage"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "pair-comparison": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "Pair fit: matched versus random" },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "position": "bottom" },
+              "yAxis": {
+                "min": 0,
+                "max": 1,
+                "format": { "unit": "percent-decimal", "decimalPlaces": 1 }
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "histogram_avg(sum by(retrieval,strategy)({otel_metric_name=\"tabletalk.matching.pair_affinity\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"}))",
+                    "seriesNameFormat": "{{retrieval}} / {{strategy}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "weakest-comparison": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Nobody stranded: weakest person's best connection",
+            "description": "Mean of each run's minimum best-tablemate affinity. Higher is better; heuristic, not a guarantee of a real-world connection."
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "position": "bottom" },
+              "yAxis": {
+                "min": 0,
+                "max": 1,
+                "format": { "unit": "percent-decimal", "decimalPlaces": 1 }
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "histogram_avg(sum by(retrieval,strategy)({otel_metric_name=\"tabletalk.matching.weakest_fit\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"}))",
+                    "seriesNameFormat": "{{retrieval}} / {{strategy}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "completeness": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Everyone gets a seat",
+            "description": "Mean seated fraction of successful runs' snapshots. This is not a run success rate; failed runs are not sampled."
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "position": "bottom" },
+              "yAxis": {
+                "min": 0,
+                "max": 1,
+                "format": { "unit": "percent-decimal", "decimalPlaces": 0 }
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "histogram_avg(sum by(retrieval)({otel_metric_name=\"tabletalk.matching.seating_completeness\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"}))",
+                    "seriesNameFormat": "{{retrieval}} seated"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "table-size": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Mean attendees per table",
+            "description": "Each table in each saved run contributes one observation; repeated drafts are counted."
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "position": "bottom" },
+              "yAxis": {
+                "min": 0,
+                "max": 20,
+                "format": { "unit": "decimal", "decimalPlaces": 1 }
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "histogram_avg(sum by(retrieval)({otel_metric_name=\"tabletalk.matching.table_size\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"}))",
+                    "seriesNameFormat": "{{retrieval}} table size"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "layouts": [
+      {
+        "kind": "Grid",
+        "spec": {
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 24,
+              "height": 5,
+              "content": { "$ref": "#/spec/panels/context" }
+            },
+            {
+              "x": 0,
+              "y": 5,
+              "width": 6,
+              "height": 4,
+              "content": { "$ref": "#/spec/panels/samples" }
+            },
+            {
+              "x": 6,
+              "y": 5,
+              "width": 6,
+              "height": 4,
+              "content": { "$ref": "#/spec/panels/pair-score" }
+            },
+            {
+              "x": 12,
+              "y": 5,
+              "width": 6,
+              "height": 4,
+              "content": { "$ref": "#/spec/panels/uplift" }
+            },
+            {
+              "x": 18,
+              "y": 5,
+              "width": 6,
+              "height": 4,
+              "content": { "$ref": "#/spec/panels/learn" }
+            },
+            {
+              "x": 0,
+              "y": 9,
+              "width": 12,
+              "height": 8,
+              "content": { "$ref": "#/spec/panels/pair-comparison" }
+            },
+            {
+              "x": 12,
+              "y": 9,
+              "width": 12,
+              "height": 8,
+              "content": { "$ref": "#/spec/panels/weakest-comparison" }
+            },
+            {
+              "x": 0,
+              "y": 17,
+              "width": 12,
+              "height": 8,
+              "content": { "$ref": "#/spec/panels/completeness" }
+            },
+            {
+              "x": 12,
+              "y": 17,
+              "width": 12,
+              "height": 8,
+              "content": { "$ref": "#/spec/panels/table-size" }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

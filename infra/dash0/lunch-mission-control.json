@@ -1,0 +1,495 @@
+{
+  "apiVersion": "perses.dev/v1alpha1",
+  "kind": "PersesDashboard",
+  "metadata": {
+    "name": "tabletalk-lunch-mission-control"
+  },
+  "spec": {
+    "display": {
+      "name": "TableTalk | Lunch Mission Control",
+      "description": "Live enrollment, seating capacity, publication, and successful matching performance."
+    },
+    "duration": "1h",
+    "refreshInterval": "10s",
+    "panels": {
+      "context": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "A great connection starts with a seat" },
+          "plugin": {
+            "kind": "Markdown",
+            "spec": {
+              "text": "**Live TableTalk lunch operations** | Cluster: `tabletalk` | Environment: `radar`\n\nThe API background loop refreshes enrollment and assignment-health gauges even with no browser open (default: every 10 seconds). Unassigned attendees are expected before the cutoff; the alert waits until 2 minutes after the cutoff. Saved-run totals and duration distributions are cumulative since API process start. Missing or stale snapshots need investigation, not a healthy zero."
+            }
+          }
+        }
+      },
+      "enrolled": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "Attendees enrolled" },
+          "plugin": {
+            "kind": "StatChart",
+            "spec": {
+              "calculation": "instant",
+              "format": { "unit": "decimal", "decimalPlaces": 0 }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "max({otel_metric_name=\"tabletalk.event.enrolled\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"})",
+                    "seriesNameFormat": "Attendees"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "capacity": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "Available capacity" },
+          "plugin": {
+            "kind": "StatChart",
+            "spec": {
+              "calculation": "instant",
+              "format": { "unit": "decimal", "decimalPlaces": 0 }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "max({otel_metric_name=\"tabletalk.event.capacity\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"})",
+                    "seriesNameFormat": "Seats"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "remaining": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "Seats remaining" },
+          "plugin": {
+            "kind": "StatChart",
+            "spec": {
+              "calculation": "instant",
+              "format": { "unit": "decimal", "decimalPlaces": 0 }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "max({otel_metric_name=\"tabletalk.event.remaining_seats\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"})",
+                    "seriesNameFormat": "Seats"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "published": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "Published? 1 = yes, 0 = no" },
+          "plugin": {
+            "kind": "StatChart",
+            "spec": {
+              "calculation": "instant",
+              "format": { "unit": "decimal", "decimalPlaces": 0 }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "max({otel_metric_name=\"tabletalk.event.published\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"})",
+                    "seriesNameFormat": "Published"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "runs": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "Runs saved since API restart" },
+          "plugin": {
+            "kind": "StatChart",
+            "spec": {
+              "calculation": "instant",
+              "format": { "unit": "decimal", "decimalPlaces": 0 }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "sum({otel_metric_name=\"tabletalk.matching.runs\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"})",
+                    "seriesNameFormat": "Saved runs"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "duration": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Successful run p95 duration",
+            "description": "Includes computation and saving the draft; excludes failed runs. Approximate histogram percentile since API restart."
+          },
+          "plugin": {
+            "kind": "StatChart",
+            "spec": {
+              "calculation": "instant",
+              "format": { "unit": "seconds", "decimalPlaces": 2 }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "histogram_quantile(0.95,sum({otel_metric_name=\"tabletalk.matching.duration\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"}))",
+                    "seriesNameFormat": "p95"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "unassigned": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Without a published assignment",
+            "description": "Expected before publication. The check rule only alerts after the configured cutoff plus a 2-minute grace period."
+          },
+          "plugin": {
+            "kind": "StatChart",
+            "spec": {
+              "calculation": "instant",
+              "format": { "unit": "decimal", "decimalPlaces": 0 }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "max({otel_metric_name=\"tabletalk.event.unassigned\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"})",
+                    "seriesNameFormat": "Unassigned"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "singletons": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "Published singleton tables" },
+          "plugin": {
+            "kind": "StatChart",
+            "spec": {
+              "calculation": "instant",
+              "format": { "unit": "decimal", "decimalPlaces": 0 }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "max({otel_metric_name=\"tabletalk.event.singleton_tables\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"})",
+                    "seriesNameFormat": "Singleton tables"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "auto-failure": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "Automatic match failed? 1 = yes" },
+          "plugin": {
+            "kind": "StatChart",
+            "spec": {
+              "calculation": "instant",
+              "format": { "unit": "decimal", "decimalPlaces": 0 }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "max({otel_metric_name=\"tabletalk.event.auto_match_failed\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"})",
+                    "seriesNameFormat": "Unresolved failure"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "snapshot-age": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Assignment snapshot age",
+            "description": "Should normally stay below 30 seconds; investigate if it reaches 2 minutes. Absence is monitored separately by the check rule."
+          },
+          "plugin": {
+            "kind": "StatChart",
+            "spec": {
+              "calculation": "instant",
+              "format": { "unit": "seconds", "decimalPlaces": 0 }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "time() - max({otel_metric_name=\"tabletalk.event.snapshot_timestamp\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"})",
+                    "seriesNameFormat": "Snapshot age"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "enrollment-trend": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "Enrollment versus room capacity" },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "position": "bottom" },
+              "yAxis": {
+                "min": 0,
+                "format": { "unit": "decimal", "decimalPlaces": 0 }
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "max({otel_metric_name=\"tabletalk.event.enrolled\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"})",
+                    "seriesNameFormat": "Enrolled"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "max({otel_metric_name=\"tabletalk.event.capacity\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"})",
+                    "seriesNameFormat": "Capacity"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "performance": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Successful run duration by retrieval mode",
+            "description": "Cumulative mean and p95 since API restart; includes persistence. Percentiles are estimates, especially with few runs."
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "position": "bottom" },
+              "yAxis": {
+                "min": 0,
+                "format": { "unit": "seconds", "decimalPlaces": 2 }
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "histogram_avg(sum by(retrieval)({otel_metric_name=\"tabletalk.matching.duration\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"}))",
+                    "seriesNameFormat": "{{retrieval}} mean"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "histogram_quantile(0.95,sum by(retrieval)({otel_metric_name=\"tabletalk.matching.duration\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"}))",
+                    "seriesNameFormat": "{{retrieval}} p95"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "layouts": [
+      {
+        "kind": "Grid",
+        "spec": {
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 24,
+              "height": 4,
+              "content": { "$ref": "#/spec/panels/context" }
+            },
+            {
+              "x": 0,
+              "y": 4,
+              "width": 6,
+              "height": 4,
+              "content": { "$ref": "#/spec/panels/enrolled" }
+            },
+            {
+              "x": 6,
+              "y": 4,
+              "width": 6,
+              "height": 4,
+              "content": { "$ref": "#/spec/panels/capacity" }
+            },
+            {
+              "x": 12,
+              "y": 4,
+              "width": 6,
+              "height": 4,
+              "content": { "$ref": "#/spec/panels/remaining" }
+            },
+            {
+              "x": 18,
+              "y": 4,
+              "width": 6,
+              "height": 4,
+              "content": { "$ref": "#/spec/panels/published" }
+            },
+            {
+              "x": 0,
+              "y": 8,
+              "width": 12,
+              "height": 4,
+              "content": { "$ref": "#/spec/panels/runs" }
+            },
+            {
+              "x": 12,
+              "y": 8,
+              "width": 12,
+              "height": 4,
+              "content": { "$ref": "#/spec/panels/duration" }
+            },
+            {
+              "x": 0,
+              "y": 12,
+              "width": 12,
+              "height": 8,
+              "content": { "$ref": "#/spec/panels/enrollment-trend" }
+            },
+            {
+              "x": 12,
+              "y": 12,
+              "width": 12,
+              "height": 8,
+              "content": { "$ref": "#/spec/panels/performance" }
+            },
+            {
+              "x": 0,
+              "y": 20,
+              "width": 6,
+              "height": 4,
+              "content": { "$ref": "#/spec/panels/unassigned" }
+            },
+            {
+              "x": 6,
+              "y": 20,
+              "width": 6,
+              "height": 4,
+              "content": { "$ref": "#/spec/panels/singletons" }
+            },
+            {
+              "x": 12,
+              "y": 20,
+              "width": 6,
+              "height": 4,
+              "content": { "$ref": "#/spec/panels/auto-failure" }
+            },
+            {
+              "x": 18,
+              "y": 20,
+              "width": 6,
+              "height": 4,
+              "content": { "$ref": "#/spec/panels/snapshot-age" }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

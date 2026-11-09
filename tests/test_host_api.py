@@ -1,10 +1,11 @@
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import httpx
 import pytest
 from fastapi.testclient import TestClient
 from tabletalk_api import main
+from tabletalk_api.observability import DashboardMetrics
 from tabletalk_api.seed import seed_attendees
 from tabletalk_matcher.affinity import Affinity, lexical_directed_scores
 from tabletalk_matcher.matching import build_plan
@@ -173,6 +174,8 @@ class TestRuns:
         monkeypatch.setattr(main, "read_event", AsyncMock(return_value=event))
         save = AsyncMock(side_effect=lambda _client, saved: saved)
         monkeypatch.setattr(main, "save_run", save)
+        telemetry = Mock(spec=DashboardMetrics)
+        monkeypatch.setattr(main, "dashboard_metrics", telemetry)
         assert isinstance(services.matcher.request, AsyncMock)
         services.matcher.request.return_value = httpx.Response(
             200, json=run.plan.model_dump(mode="json")
@@ -195,6 +198,26 @@ class TestRuns:
         assert body["seed"] == 42
         assert body["plan"]["run_id"] == body["id"]
         save.assert_awaited_once()
+        telemetry.record_run.assert_called_once()
+        measured_plan, duration = telemetry.record_run.call_args.args
+        assert measured_plan.run_id == body["id"]
+        assert duration >= 0
+
+    async def test_failed_persistence_does_not_record_a_successful_run(
+        self, api: Api, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _, services = api
+        run = make_run(people(4))
+        telemetry = Mock(spec=DashboardMetrics)
+        monkeypatch.setattr(main, "dashboard_metrics", telemetry)
+        monkeypatch.setattr(main, "save_run", AsyncMock(side_effect=RuntimeError("save failed")))
+        assert isinstance(services.matcher.request, AsyncMock)
+        services.matcher.request.return_value = httpx.Response(
+            200, json=run.plan.model_dump(mode="json")
+        )
+        with pytest.raises(RuntimeError, match="save failed"):
+            await main.create_run(services, 0, use_llm=False)
+        telemetry.record_run.assert_not_called()
 
     def test_publish_refuses_a_run_that_would_leave_someone_out(
         self, api: Api, monkeypatch: pytest.MonkeyPatch

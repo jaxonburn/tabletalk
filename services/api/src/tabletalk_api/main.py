@@ -6,6 +6,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from time import perf_counter
 from typing import Annotated, Any, Literal
 from uuid import uuid4
 
@@ -65,6 +66,7 @@ from tabletalk_shared.storage import (
 )
 from tabletalk_shared.telemetry import configure_telemetry, register_storage_errors
 
+from tabletalk_api.observability import DashboardMetrics
 from tabletalk_api.seed import GOAL_PROMPTS, seed_attendees
 
 logger = logging.getLogger(__name__)
@@ -109,6 +111,7 @@ app = FastAPI(title="TableTalk Conference API", lifespan=lifespan)
 shutdown_telemetry = configure_telemetry(app, "tabletalk-api")
 register_storage_errors(app)
 meter = metrics.get_meter(__name__)
+dashboard_metrics = DashboardMetrics(meter)
 enrollment_counter = meter.create_counter("tabletalk.enrollments")
 run_counter = meter.create_counter("tabletalk.matching.runs")
 publish_counter = meter.create_counter("tabletalk.matching.published")
@@ -173,6 +176,7 @@ async def conference(services: Dependencies) -> ConferenceState:
         read_plan(services.elasticsearch),
         read_event(services.elasticsearch),
     )
+    dashboard_metrics.record_event(len(attendees), event, published=plan is not None)
     return ConferenceState(
         attendees=[],  # Full profiles are host-only; personal table details use /api/me.
         attendee_count=len(attendees),
@@ -351,6 +355,7 @@ async def host_state(services: Dependencies) -> HostState:
         read_plan(services.elasticsearch),
         read_event(services.elasticsearch),
     )
+    dashboard_metrics.record_event(len(attendees), event, published=plan is not None)
     published_run_id = plan.run_id if plan else None
     now = utc_now()
     return HostState(
@@ -389,6 +394,7 @@ class RunOptions(BaseModel):
 async def create_run(
     services: Services, seed: int, use_llm: bool = True, use_semantic: bool = True
 ) -> MatchRun:
+    started = perf_counter()
     event = await read_event(services.elasticsearch)
     request = RunRequest(
         tables=event.tables,
@@ -409,6 +415,7 @@ async def create_run(
         plan=plan,
     )
     await save_run(services.elasticsearch, run)
+    dashboard_metrics.record_run(plan, perf_counter() - started)
     run_counter.add(1)
     logger.info("Match run created: attendees=%d groups=%d", plan.attendee_count, len(plan.groups))
     return run
@@ -571,6 +578,17 @@ async def run_due_cutoff(services: Services, now: datetime) -> AutoMatchState | 
     return state
 
 
+async def refresh_dashboard_metrics(services: Services) -> None:
+    attendees, plan, event, auto = await asyncio.gather(
+        list_attendees(services.elasticsearch),
+        read_plan(services.elasticsearch),
+        read_event(services.elasticsearch),
+        read_auto_state(services.elasticsearch),
+    )
+    dashboard_metrics.record_event(len(attendees), event, published=plan is not None)
+    dashboard_metrics.record_assignment_health(attendees, event, plan, auto, utc_now())
+
+
 async def cutoff_watcher(services: Services, poll_seconds: float) -> None:
     """Background loop in the single API worker. See agent.md before adding workers."""
     while True:
@@ -581,4 +599,12 @@ async def cutoff_watcher(services: Services, poll_seconds: float) -> None:
         except Exception as error:
             # Storage hiccups are retried on the next poll; nothing personal is logged.
             logger.warning("Cutoff check failed (%s); retrying.", type(error).__name__)
+        try:
+            await refresh_dashboard_metrics(services)
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:
+            logger.warning(
+                "Assignment telemetry refresh failed (%s); retrying.", type(error).__name__
+            )
         await asyncio.sleep(poll_seconds)

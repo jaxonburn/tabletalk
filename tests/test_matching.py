@@ -1,11 +1,45 @@
+from unittest.mock import AsyncMock, Mock
+
 import pytest
+from elasticsearch import AsyncElasticsearch
+from fastapi import Request
 from pydantic import ValidationError
 from tabletalk_api.seed import seed_attendees
+from tabletalk_matcher import main
 from tabletalk_matcher.affinity import Affinity, lexical_directed_scores
-from tabletalk_matcher.matching import build_plan
+from tabletalk_matcher.matching import InvalidPlanError, build_plan
 from tabletalk_matcher.narratives import explain_pair
 from tabletalk_matcher.sizing import SeatingError, plan_table_sizes
-from tabletalk_shared.models import DEFAULT_TABLES, Attendee, Enrollment, Goal, MatchPlan
+from tabletalk_shared.models import (
+    DEFAULT_TABLES,
+    Attendee,
+    Enrollment,
+    Goal,
+    MatchPlan,
+    RunRequest,
+)
+
+
+async def test_rejected_plan_emits_alert_counter_without_returning_assignments(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(main, "list_attendees", AsyncMock(return_value=seed_attendees()[:4]))
+    monkeypatch.setattr(main, "elasticsearch_affinity", AsyncMock(return_value=Affinity({})))
+    monkeypatch.setattr(
+        main, "build_plan", Mock(side_effect=InvalidPlanError("Every attendee exactly once."))
+    )
+    rejected = Mock()
+    groups = Mock()
+    monkeypatch.setattr(main, "invalid_plan_counter", rejected)
+    monkeypatch.setattr(main, "group_counter", groups)
+    with pytest.raises(InvalidPlanError):
+        await main.compute_run(
+            RunRequest(tables=DEFAULT_TABLES, use_llm=False, use_semantic=False),
+            Mock(spec=AsyncElasticsearch),
+            Request({"type": "http", "app": main.app}),
+        )
+    rejected.add.assert_called_once_with(1)
+    groups.add.assert_not_called()
 
 
 @pytest.mark.parametrize("count", [2, 4, 5, 9, 13, 100])
