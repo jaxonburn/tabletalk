@@ -2563,3 +2563,28 @@ body:has(#tabletalk-auto) {
   font-size: 11px;
   letter-spacing: 0.06em;
 }
+
+#tabletalk-auto .ta-access-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 44px;
+  padding: 4px 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+#tabletalk-auto .ta-access-choice input {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin: 1px 0 0;
+  accent-color: var(--blue);
+  cursor: pointer;
+}
+#tabletalk-auto .ta-access-choice input:focus-visible {
+  outline: 3px solid var(--blue-text);
+  outline-offset: 3px;
+}

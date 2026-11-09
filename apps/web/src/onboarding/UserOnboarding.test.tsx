@@ -270,6 +270,51 @@ describe("attendee onboarding", () => {
     expect(screen.getByText("TABLE MATCHES OPEN AT")).toBeTruthy();
   });
 
+  it.each([true, false])(
+    "signs up the same way with the wheelchair box checked: %s",
+    async (checked) => {
+      route("POST", "/api/enrollments", () =>
+        json({ ...attendee, attendee_token: "t" }, 201),
+      );
+      route("GET", "/api/me", () => json(status()));
+      await mount();
+      const box = screen.getByRole("checkbox", {
+        name: "I need a wheelchair-accessible place at my lunch table.",
+      }) as HTMLInputElement;
+      expect(box.checked).toBe(false);
+      // The whole label is the tap target.
+      if (checked) {
+        fireEvent.click(
+          screen.getByText(
+            "I need a wheelchair-accessible place at my lunch table.",
+          ),
+        );
+      }
+      expect(box.checked).toBe(checked);
+      completeAboutYou();
+      click("Kubernetes", "checkbox");
+      click(/Next: your goals/);
+      click(/Meet new people/, "checkbox");
+      type("What would you enjoy discussing?", "Platforms");
+      click(/Save my spot/);
+      expect(
+        await screen.findByRole("heading", { name: /is on its way/ }),
+      ).toBeTruthy();
+      const body = sent("POST /api/enrollments");
+      expect(Object.keys(body).sort()).toEqual([
+        "company",
+        "focus_goal",
+        "goal_answers",
+        "goals",
+        "interests",
+        "lunch_slot",
+        "name",
+        "role",
+      ]);
+      expect(JSON.stringify(body)).not.toMatch(/wheelchair|access/i);
+    },
+  );
+
   it("shows the server's reason when enrollment fails", async () => {
     route("POST", "/api/enrollments", () =>
       json({ detail: "Enrollment for this lunch has closed." }, 409),
