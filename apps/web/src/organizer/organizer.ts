@@ -26,6 +26,7 @@ import {
   type HostState,
   type MatchRun,
 } from "../api";
+import { ATTENDEE_PATH } from "../routes";
 
 export const HOST_TOKEN_KEY = "tabletalk-host-token";
 /** How often the console re-reads the server, e.g. after a cutoff run. */
@@ -604,7 +605,7 @@ export function initOrganizer(root: HTMLElement): () => void {
 
   /** The attendee app, where the QR code and signup link point. */
   function signupUrl() {
-    return `${window.location.origin}/`;
+    return `${window.location.origin}${ATTENDEE_PATH}`;
   }
 
   function askForToken() {

@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: matcher
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: tabletalk-matcher
@@ -13,6 +13,17 @@ spec:
         app: tabletalk-matcher
     spec:
       automountServiceAccountToken: false
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values: [tabletalk-api, tabletalk-matcher]
+                topologyKey: kubernetes.io/hostname
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001

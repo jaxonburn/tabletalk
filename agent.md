@@ -17,12 +17,16 @@ integrations; Dash0 is the observability destination.
 - `apps/web`: React, TypeScript, Vite. Same-origin `/api` requests are proxied to
   the conference API by Vite in development. The browser never accesses
   Elasticsearch or the matching service directly. `src/main.tsx` picks the page
-  from the path: `/host` (also `/organizer-workflow` and `/event-organizer`)
-  loads the organizer console in `src/organizer/`, `/host/review` loads the
-  detailed review (`HostApp.tsx`), `/classic` loads the original single-page app
-  (`App.tsx`), and
-  everything else (including `/user-onboarding`) loads the attendee app in
-  `src/onboarding/`. Each page is a separate chunk with its own stylesheet.
+  with `pageForPath` in `src/routes.ts`: `/user-onboarding` loads the attendee
+  app in `src/onboarding/`, `/host` (also `/organizer-workflow` and
+  `/event-organizer`) the organizer console in `src/organizer/`, `/host/review`
+  the detailed review (`HostApp.tsx`), `/classic` the original single-page app
+  (`App.tsx`), and `/` (and any other path) the landing page in `src/landing/`.
+  Each page is a separate chunk with its own stylesheet.
+- `src/landing/`: the landing template's HTML and CSS. It has no script: the
+  animation is CSS, and its Attendee Workflow and Organizer Workflow buttons are
+  links to `ATTENDEE_PATH` and `ORGANIZER_PATH` (keep them in step with
+  `src/routes.ts`; `LandingPage.test.tsx` checks they match).
 - `src/onboarding/`: the onboarding template's HTML and CSS, kept as close to the
   original as possible, plus `onboarding.ts`, which drives the markup and talks to
   the API: `GET /api/conference` for event details and goal copy, `POST
@@ -44,7 +48,7 @@ integrations; Dash0 is the observability destination.
   deletes all drafts. The console re-reads the server every 20 s (not while
   editing), and a 401 shows a host-token prompt (stored in `sessionStorage`
   under `tabletalk-host-token`, shared with `/host/review`). The signup link and
-  QR point to this site's `/`.
+  QR point to `/user-onboarding` (`ATTENDEE_PATH`).
 - `services/api`: public FastAPI API. Owns enrollment, the cutoff, host event
   setup, fictional demo data, draft runs, and publishing. Calls the matching
   service over HTTPX. An in-process lock serializes mutations in the single API

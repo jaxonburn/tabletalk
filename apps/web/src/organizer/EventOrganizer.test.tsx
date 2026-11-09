@@ -215,7 +215,7 @@ describe("organizer console", () => {
     expect(byId("plan-tables").textContent).toBe("2 tables · 8 seats");
     expect(byId("create").hidden).toBe(true);
     expect((byId("signup-url") as HTMLInputElement).value).toBe(
-      `${window.location.origin}/`,
+      `${window.location.origin}/user-onboarding`,
     );
     expect(byId("qr").querySelector("svg")).toBeTruthy();
   });
