@@ -969,6 +969,7 @@ export function initOnboarding(root: HTMLElement): () => void {
     else closeNav(true);
   });
   on(q("nav-edit"), "click", () => {
+    window.clearTimeout(matchTimer);
     closeNav();
     resetSeated();
     show("about", { back: true });

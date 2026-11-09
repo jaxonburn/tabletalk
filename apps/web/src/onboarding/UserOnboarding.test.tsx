@@ -37,6 +37,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
@@ -119,6 +120,23 @@ describe("user onboarding", () => {
         "What’s a tiny frustration you’d happily build an entire company to fix?",
       ),
     ).toBeTruthy();
+  });
+
+  it("keeps the edit screen open when leaving during a pending match", () => {
+    vi.useFakeTimers();
+    completeAboutYou();
+    click(/Next: your goals/);
+    click("Select Share my expertise and make it your focus");
+    type(shareQuestion, "Outbound sales.");
+    click(/Save my spot/);
+    click(/Simulate the 12:15 match/);
+    click(/Meet my table/);
+
+    click("Menu");
+    click(/Edit my details/);
+    vi.runOnlyPendingTimers();
+
+    expect(heading(/First, a proper/)).toBeTruthy();
   });
 
   it("removes the development hook when the page unmounts", () => {
