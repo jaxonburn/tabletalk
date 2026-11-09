@@ -1,0 +1,19 @@
+{
+  "name": "tabletalk",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/web"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @tabletalk/web",
+    "build": "npm run build --workspace @tabletalk/web",
+    "lint": "npm run lint --workspace @tabletalk/web",
+    "test": "npm run test --workspace @tabletalk/web",
+    "format:check": "prettier --check apps/web package.json compose*.yaml .github/workflows/ci.yml",
+    "format": "prettier --write apps/web package.json compose*.yaml .github/workflows/ci.yml"
+  },
+  "devDependencies": {
+    "prettier": "^3.5.3"
+  }
+}

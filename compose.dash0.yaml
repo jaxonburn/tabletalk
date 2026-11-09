@@ -1,0 +1,8 @@
+services:
+  otel-collector:
+    environment:
+      DASH0_ENDPOINT: ${DASH0_ENDPOINT:?Set DASH0_ENDPOINT to your Dash0 OTLP/HTTP base URL}
+      DASH0_AUTH_TOKEN: ${DASH0_AUTH_TOKEN:?Set DASH0_AUTH_TOKEN}
+      DASH0_DATASET: ${DASH0_DATASET:-default}
+    volumes:
+      - ./infra/otel/collector.dash0.yaml:/etc/otelcol/config.yaml:ro

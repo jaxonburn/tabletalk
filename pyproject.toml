@@ -1,0 +1,38 @@
+[project]
+name = "tabletalk"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.uv.workspace]
+members = ["services/api", "services/matcher", "packages/shared"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3,<9",
+    "pytest-asyncio>=0.25,<1",
+    "ruff>=0.11,<1",
+    "mypy>=1.15,<2",
+    "tabletalk-api",
+    "tabletalk-matcher",
+]
+
+[tool.uv.sources]
+tabletalk-api = { workspace = true }
+tabletalk-matcher = { workspace = true }
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["services", "packages", "tests"]
