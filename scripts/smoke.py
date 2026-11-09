@@ -12,7 +12,7 @@ def main() -> None:
         client.get("/health").raise_for_status()
         initial = client.get("/api/conference")
         initial.raise_for_status()
-        assert initial.json()["attendees"] == [], "Smoke checks require a fresh stack."
+        assert initial.json()["attendee_count"] == 0, "Smoke checks require a fresh stack."
         assert client.post("/api/matches").status_code == 409
         seeded = client.post("/api/demo/seed")
         seeded.raise_for_status()
@@ -38,7 +38,8 @@ def main() -> None:
         draft.raise_for_status()
         run = draft.json()
         assert run["plan"]["attendee_count"] == 13
-        assert client.get("/api/conference").json()["plan"] is None, "Drafts are not published."
+        draft_state = client.get("/api/conference").json()
+        assert draft_state["plan"] is None and draft_state["published"] is False
         state = client.get("/api/host/state").json()
         assert [summary["id"] for summary in state["runs"]] == [run["id"]]
         assert state["status"] == "open"
@@ -71,7 +72,9 @@ def main() -> None:
             ).status_code
             == 409
         )
-        assert client.get("/api/conference").json()["plan"] == plan
+        public = client.get("/api/conference").json()
+        assert public["published"] is True and public["status"] == "published"
+        assert public["plan"] is None and public["attendees"] == [], "Public data is aggregate."
         assert client.post(f"/api/host/runs/{run['id']}/publish").status_code == 409
         assert client.put("/api/host/event", json={}).status_code == 409
         assert client.get("/api/host/state").json()["status"] == "published"
