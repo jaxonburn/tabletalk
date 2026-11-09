@@ -243,10 +243,7 @@ export default function App() {
                 Switch to the new attendee experience
                 <span aria-hidden="true">→</span>
               </a>
-              <a
-                className="onboarding-link organizer-link"
-                href="/organizer-workflow"
-              >
+              <a className="onboarding-link organizer-link" href="/host">
                 Organizer Workflow
                 <span aria-hidden="true">→</span>
               </a>

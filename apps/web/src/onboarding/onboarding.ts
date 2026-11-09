@@ -74,6 +74,9 @@ export const INTERESTS = [
 const MAX_INTERESTS = 8;
 const MAX_ANSWER = 500;
 export const POLL_MS = 15_000;
+/** After the reveal, check less often, just for host updates. */
+export const INBOX_POLL_MS = 60_000;
+const INBOX_LIMIT = 3;
 const FALLBACK_QUESTIONS = [
   "What’s one idea from today’s talks you want to try back at work?",
   "What tool or practice would you recommend to everyone at this table?",
@@ -315,6 +318,7 @@ export function initOnboarding(root: HTMLElement): () => void {
         heading.focus();
       }
     }
+    renderInbox();
     schedulePoll();
   }
 
@@ -904,6 +908,7 @@ export function initOnboarding(root: HTMLElement): () => void {
       });
       if (signal.aborted) return null;
       me = status;
+      renderInbox();
       return status;
     } catch (error) {
       if (
@@ -951,8 +956,37 @@ export function initOnboarding(root: HTMLElement): () => void {
   function schedulePoll() {
     window.clearInterval(pollTimer);
     pollTimer = undefined;
-    if (current !== "waiting" || !token || me?.assignment) return;
-    pollTimer = window.setInterval(() => void checkNow(), POLL_MS);
+    if (!token || !me) return;
+    if (current === "waiting" && !me.assignment) {
+      pollTimer = window.setInterval(() => void checkNow(), POLL_MS);
+    } else if (!ONBOARDING.includes(current)) {
+      pollTimer = window.setInterval(
+        () => void refresh().catch(() => undefined),
+        INBOX_POLL_MS,
+      );
+    }
+  }
+
+  /** The host's latest updates, newest first. */
+  function renderInbox() {
+    const inbox = q("inbox");
+    const items = (me?.announcements ?? []).slice(0, INBOX_LIMIT);
+    inbox.hidden = !items.length || ONBOARDING.includes(current);
+    inbox.replaceChildren(
+      ...items.map((a) => {
+        const item = el("article", { class: "ta-inbox-item" });
+        const when = new Intl.DateTimeFormat([], {
+          hour: "numeric",
+          minute: "2-digit",
+        }).format(new Date(a.sent_at));
+        item.append(
+          el("b", {}, a.title),
+          el("p", {}, a.body),
+          el("small", {}, `FROM YOUR HOST · ${when}`.toUpperCase()),
+        );
+        return item;
+      }),
+    );
   }
   on(document, "visibilitychange", () => {
     if (

@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Annotated, Literal, Self
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import (
     AwareDatetime,
@@ -194,6 +195,27 @@ class EventConfig(BaseModel):
     # Shown to attendees with their table.
     lunch_time: OptionalShortText = "12:30–1:15"
     location: OptionalShortText = "Main hall"
+    # Event details from the organizer console. Times are local to `timezone`.
+    name: ShortText = "Cloud Native Hackathon"
+    date: Annotated[str, StringConstraints(pattern=r"^\d{4}-\d{2}-\d{2}$")] | None = None
+    timezone: Annotated[str, StringConstraints(max_length=64)] = "America/Denver"
+    lunch_start: Annotated[str, StringConstraints(pattern=r"^\d{2}:\d{2}$")] = "12:30"
+    lunch_end: Annotated[str, StringConstraints(pattern=r"^\d{2}:\d{2}$")] = "13:15"
+
+    @field_validator("timezone")
+    @classmethod
+    def known_timezone(cls, value: str) -> str:
+        try:
+            ZoneInfo(value)
+        except (ZoneInfoNotFoundError, ValueError) as error:
+            raise ValueError("Choose a valid time zone.") from error
+        return value
+
+    @model_validator(mode="after")
+    def lunch_ends_after_it_starts(self) -> Self:
+        if self.lunch_end <= self.lunch_start:
+            raise ValueError("Lunch must end after it starts.")
+        return self
 
     @field_validator("tables")
     @classmethod
@@ -310,6 +332,35 @@ class AutoMatchState(BaseModel):
     at: datetime
 
 
+AnnouncementAudience = Literal["all", "matched"]
+
+
+class AnnouncementRequest(BaseModel):
+    """An update for attendees' in-app inbox, sent now or at `send_at`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: ShortText
+    body: Answer
+    audience: AnnouncementAudience = "all"
+    send_at: AwareDatetime | None = None
+
+
+class Announcement(AnnouncementRequest):
+    id: str
+    created_at: datetime
+    recipients: int = 0
+
+
+class AttendeeAnnouncement(BaseModel):
+    """What attendees see in their inbox."""
+
+    id: str
+    title: str
+    body: str
+    sent_at: datetime
+
+
 class HostState(BaseModel):
     event: EventConfig
     status: EnrollmentStatus
@@ -323,6 +374,7 @@ class HostState(BaseModel):
     auto: AutoMatchState | None = None
     # Attendee ID -> when they tapped "I'm seated" at their published table.
     check_ins: dict[str, datetime] = Field(default_factory=dict)
+    announcements: list[Announcement] = Field(default_factory=list)
 
 
 class GoalPrompt(BaseModel):
@@ -371,6 +423,7 @@ class MyStatus(BaseModel):
     enrollment_closes_at: datetime | None
     assignment: MyAssignment | None
     checked_in_at: datetime | None = None
+    announcements: list[AttendeeAnnouncement] = Field(default_factory=list)
 
 
 class ConferenceState(BaseModel):

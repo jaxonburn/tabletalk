@@ -13,6 +13,7 @@ from tabletalk_shared.models import (
     CONFERENCE_ID,
     LUNCH_SLOT,
     MAX_ATTENDEES,
+    Announcement,
     Attendee,
     AutoMatchState,
     EventConfig,
@@ -303,6 +304,36 @@ async def list_check_ins(client: AsyncElasticsearch) -> dict[str, datetime]:
         hit["_source"]["attendee_id"]: datetime.fromisoformat(hit["_source"]["at"])
         for hit in response["hits"]["hits"]
     }
+
+
+async def save_announcement(client: AsyncElasticsearch, announcement: Announcement) -> None:
+    await client.create(
+        index=EVENTS_INDEX,
+        id=f"{EVENT_ID}:announcement:{announcement.id}",
+        document={"kind": "announcement", **announcement.model_dump(mode="json")},
+        refresh="wait_for",
+    )
+
+
+async def list_announcements(client: AsyncElasticsearch) -> list[Announcement]:
+    """Newest first, by when they're delivered (or were created, if sent right away)."""
+    response = await client.search(
+        index=EVENTS_INDEX, query={"term": {"kind": "announcement"}}, size=200
+    )
+    announcements = [
+        Announcement.model_validate({k: v for k, v in hit["_source"].items() if k != "kind"})
+        for hit in response["hits"]["hits"]
+    ]
+    return sorted(announcements, key=lambda a: a.send_at or a.created_at, reverse=True)
+
+
+async def delete_draft_runs(client: AsyncElasticsearch, published_run_id: str | None) -> int:
+    """Remove every unpublished run. The published run, if any, is kept."""
+    query: dict[str, Any] = {"match_all": {}}
+    if published_run_id:
+        query = {"bool": {"must_not": [{"term": {"id": published_run_id}}]}}
+    response = await client.delete_by_query(index=RUNS_INDEX, query=query, refresh=True)
+    return int(response.get("deleted", 0))
 
 
 async def read_auto_state(client: AsyncElasticsearch) -> AutoMatchState | None:

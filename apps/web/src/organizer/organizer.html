@@ -11,7 +11,7 @@
         </g></svg
       ><span>TableTalk</span></span
     ><span class="ad-console">ORGANIZER CONSOLE</span
-    ><span class="ad-demo">INTERACTIVE DEMO</span>
+    ><a class="ad-demo" href="/host/review">DETAILED REVIEW ↗</a>
   </header>
   <div class="ad-layout">
     <aside class="ad-sidebar">
@@ -26,6 +26,7 @@
         type="button"
         id="ad-create"
         class="ad-button ad-outline ad-new cursor-interaction"
+        hidden
       >
         <span>＋</span> Create event
       </button>
@@ -160,6 +161,18 @@
         ><span id="ad-top-status" class="ad-badge">Registration open</span>
       </div>
       <div id="ad-toast" class="ad-toast" role="status" hidden></div>
+      <form id="ad-token-form" class="ad-toast ad-token-form" hidden>
+        <label class="ad-label" for="ad-host-token"
+          >This console needs the host token.</label
+        ><input
+          id="ad-host-token"
+          type="password"
+          autocomplete="current-password"
+          required
+        /><button type="submit" class="ad-button ad-primary cursor-interaction">
+          Unlock <span>→</span>
+        </button>
+      </form>
 
       <section
         id="ad-overview"
@@ -514,13 +527,13 @@
                   id="ad-minimum-size"
                   type="number"
                   min="2"
-                  max="12"
+                  max="6"
                   inputmode="numeric"
                   value="2"
                   required
                 />
                 <p class="ad-help">
-                  The minimum number of people to seat together.
+                  The minimum number of people to seat together (2–6).
                 </p>
               </div>
             </div>
@@ -555,7 +568,7 @@
           class="ad-demo-action cursor-interaction"
           hidden
         >
-          Demo: advance to the enrollment cutoff →
+          Run the cutoff step now →
         </button>
       </section>
 
@@ -634,7 +647,7 @@
                 Copy
               </button>
             </div>
-            <p class="ad-help">Example signup destination · demo only.</p>
+            <p class="ad-help">Opens the attendee signup for this lunch.</p>
             <div class="ad-download-actions">
               <button
                 type="button"
@@ -806,7 +819,7 @@
                 class="ad-demo-action cursor-interaction"
                 hidden
               >
-                Demo: advance to the cutoff →
+                Run the cutoff step now →
               </button>
             </div>
             <div id="ad-now-panel" hidden>
@@ -914,7 +927,6 @@
                 <option value="matched" id="ad-matched-option" disabled>
                   Matched attendees
                 </option>
-                <option value="incomplete">Incomplete profiles</option>
               </select>
             </div>
             <div class="ad-channel">
@@ -1012,7 +1024,11 @@
         </div>
       </section>
       <footer class="ad-workspace-footer">
-        <span>DEMO WORKSPACE · SAMPLE ATTENDEES</span
+        <span>DEMO ATTENDEES</span
+        ><select id="ad-sample-source" aria-label="Demo attendee source">
+          <option value="seed">12 sample profiles</option>
+          <option value="fixture">14-person test set</option>
+          <option value="generated">24 AI-generated people</option></select
         ><button type="button" id="ad-load-samples" class="cursor-interaction">
           Add demo attendees
         </button>

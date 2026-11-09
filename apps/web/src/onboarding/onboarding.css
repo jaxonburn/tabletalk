@@ -2532,3 +2532,34 @@ body:has(#tabletalk-auto) {
   opacity: 0.7;
   cursor: progress;
 }
+
+#tabletalk-auto .ta-inbox {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+#tabletalk-auto .ta-inbox[hidden] {
+  display: none;
+}
+#tabletalk-auto .ta-inbox-item {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(91, 149, 247, 0.55);
+  background: rgba(30, 110, 243, 0.16);
+}
+#tabletalk-auto .ta-inbox-item b {
+  display: block;
+  font-size: 14px;
+}
+#tabletalk-auto .ta-inbox-item p {
+  margin: 4px 0 0;
+  font-size: 14px;
+  line-height: 1.45;
+}
+#tabletalk-auto .ta-inbox-item small {
+  display: block;
+  margin-top: 6px;
+  color: var(--dim);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}

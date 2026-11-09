@@ -15,8 +15,9 @@ export function pageForPath(pathname: string): PageName {
       return "attendee";
     case ORGANIZER_PATH:
     case "/event-organizer":
-      return "organizer";
     case "/host":
+      return "organizer";
+    case "/host/review":
       return "host";
     case "/classic":
       return "classic";

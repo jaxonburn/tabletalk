@@ -28,6 +28,11 @@ def api(monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[TestClient, main.Serv
     monkeypatch.setattr(main, "list_check_ins", AsyncMock(return_value={}))
     monkeypatch.setattr(main, "save_check_in", AsyncMock())
     monkeypatch.setattr(main, "update_attendee", AsyncMock())
+    monkeypatch.setattr(main, "list_announcements", AsyncMock(return_value=[]))
+    # Runs the code under test saved are found again unless a test says otherwise.
+    monkeypatch.setattr(main, "read_run", AsyncMock(return_value=Mock()))
+    monkeypatch.setattr(main, "save_announcement", AsyncMock())
+    monkeypatch.setattr(main, "delete_draft_runs", AsyncMock(return_value=2))
     monkeypatch.delenv("HOST_TOKEN", raising=False)
     for name in (
         "LLM_PROVIDER",

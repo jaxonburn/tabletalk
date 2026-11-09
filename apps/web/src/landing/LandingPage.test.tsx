@@ -39,7 +39,8 @@ describe("routes", () => {
     ["/user-onboarding/", "attendee"],
     ["/organizer-workflow", "organizer"],
     ["/event-organizer", "organizer"],
-    ["/host", "host"],
+    ["/host", "organizer"],
+    ["/host/review", "host"],
     ["/classic", "classic"],
   ])("%s shows the %s page", (path, page) => {
     expect(pageForPath(path)).toBe(page);

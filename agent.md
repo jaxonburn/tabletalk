@@ -18,11 +18,11 @@ integrations; Dash0 is the observability destination.
   the conference API by Vite in development. The browser never accesses
   Elasticsearch or the matching service directly. `src/main.tsx` picks the page
   with `pageForPath` in `src/routes.ts`: `/user-onboarding` loads the attendee
-  app in `src/onboarding/`, `/organizer-workflow` (or `/event-organizer`) the
-  organizer prototype in `src/organizer/`, `/host` the host view
-  (`HostApp.tsx`), `/classic` the original single-page app (`App.tsx`), and `/`
-  (and any other path) the landing page in `src/landing/`. Each page is a
-  separate chunk with its own stylesheet.
+  app in `src/onboarding/`, `/host` (also `/organizer-workflow` and
+  `/event-organizer`) the organizer console in `src/organizer/`, `/host/review`
+  the detailed review (`HostApp.tsx`), `/classic` the original single-page app
+  (`App.tsx`), and `/` (and any other path) the landing page in `src/landing/`.
+  Each page is a separate chunk with its own stylesheet.
 - `src/landing/`: the landing template's HTML and CSS. It has no script: the
   animation is CSS, and its Attendee Workflow and Organizer Workflow buttons are
   links to `ATTENDEE_PATH` and `ORGANIZER_PATH` (keep them in step with
@@ -38,11 +38,17 @@ integrations; Dash0 is the observability destination.
   and the system font on `p`/`li`; `onboarding.css` reproduces both in its base
   block so the page matches the template.
 - `src/organizer/`: the organizer template, built the same way (template HTML
-  and CSS, script ported to TypeScript). Events, tables, matching, publishing,
-  and updates are simulated in memory and send nothing to the API. Its
-  `buildSeatingPlan` only demonstrates seat allocation and `signupUrl` points to
-  a reserved example domain; the host API (`/api/host/...`) covers the same
-  setup, run, and publish steps when it's time to connect it.
+  and CSS, script ported to TypeScript), driving the host API. It manages the
+  server's single event (the event switcher shows it; "Create event" edits it).
+  `event()` maps `HostState` plus the current run onto the template's
+  `OrganizerEvent`; every change goes through `act()`, which calls the API,
+  re-reads `/api/host/state`, and re-renders. Times are entered in the event's
+  time zone and stored in UTC (`localToUtc` / `utcToLocal`). The "plan" is the
+  published run, or the newest draft made for the saved layout; discarding
+  deletes all drafts. The console re-reads the server every 20 s (not while
+  editing), and a 401 shows a host-token prompt (stored in `sessionStorage`
+  under `tabletalk-host-token`, shared with `/host/review`). The signup link and
+  QR point to `/user-onboarding` (`ATTENDEE_PATH`).
 - `services/api`: public FastAPI API. Owns enrollment, the cutoff, host event
   setup, fictional demo data, draft runs, and publishing. Calls the matching
   service over HTTPX. An in-process lock serializes mutations in the single API
@@ -179,7 +185,9 @@ if you rename these contracts.
 - Host endpoints (`X-Host-Token` required only when `HOST_TOKEN` is set):
   - `GET /api/host/state`: event setup, status, attendees, run summaries.
   - `PUT /api/host/event`: numbered tables, seats, cutoff, minimum table size,
-    and the `lunch_time` / `location` shown to attendees.
+    the `lunch_time` / `location` shown to attendees, and event details: `name`
+    (also served as the conference name), `date`, `timezone` (IANA), and
+    `lunch_start` / `lunch_end` (`HH:MM`, local).
     Locked after publishing; can't shrink below current enrollment.
   - `POST /api/host/demo/attendees` (`{"source": "fixture" | "seed"}`) and
     `POST /api/demo/seed`: add missing fictional profiles; safe to repeat.
@@ -190,6 +198,14 @@ if you rename these contracts.
     Idempotent for the same run. Returns 409 for a different run, if the enrolled
     attendees no longer match the run's snapshot, or if the table setup changed
     after the run.
+  - `DELETE /api/host/runs`: discard every unpublished draft; the published run
+    is kept.
+  - `POST /api/host/announcements` (`title`, `body`, `audience`: `all` |
+    `matched`, optional `send_at`): an update for attendees' in-app inbox,
+    stored in `tabletalk-events-v1` (`kind: announcement`). `matched` needs
+    published tables. `GET /api/me` returns the ones due for that attendee
+    (`announcements`), and the attendee app shows the latest three, re-checking
+    every minute after the reveal.
   - `POST /api/matches`: shortcut that produces a seed-0 run with template notes
     (never AI, because it holds the mutation lock) and publishes it.
 - Internal `POST /runs`: compute a plan; never persists.

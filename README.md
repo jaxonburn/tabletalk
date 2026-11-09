@@ -22,11 +22,13 @@ app, and Gitar for reviewing the work as we build.
   table), "I'm seated" check-in, and conversation cards. You can edit your answers
   until sign-ups close, and the page picks up where you left off on the same
   device ("Forget me on this device" in the footer clears that).
-- An organizer workflow prototype at `/organizer-workflow` (also
-  `/event-organizer`): create and edit events, set up numbered tables, seats,
-  and the enrollment cutoff, share a signup QR code, create and publish a seating
-  plan, and draft attendee updates. It runs in the browser on sample data, isn't
-  connected to the API yet, and resets when you reload.
+- The organizer console at `/host` (also `/organizer-workflow`): edit the event
+  (name, date, time zone, lunch hours, place), set up numbered tables, seats,
+  and the enrollment cutoff in the event's local time, add demo attendees, share
+  the signup QR code, create, review, discard, or publish a seating plan, and
+  send updates (now or scheduled) to attendees' in-app inbox. It runs on the host
+  API. The detailed review (metrics, the AI judge, every person's answers and
+  notes, and seed comparisons) moved to `/host/review`.
 - The original single-page enrollment app, kept at `/classic`.
 - Twelve fictional attendees to get a demo going quickly.
 - Elasticsearch-powered matching based on shared topics, complementary goals, and
@@ -56,7 +58,8 @@ http://localhost:5173/user-onboarding), and enroll yourself using fictional deta
 You're then locked in. The page remembers you on this device, so it survives
 refreshes, and your table appears on its own once groups are published.
 
-Then open the host view at **http://localhost:5173/host**:
+Then open the organizer console at **http://localhost:5173/host** (or the
+detailed review at **http://localhost:5173/host/review**):
 
 1. **Set up the room:** choose numbered tables, seats per table, an enrollment
    cutoff, and the smallest table allowed. Optionally, **match automatically at
@@ -88,9 +91,9 @@ token for the host view and host API.
 | --- | --- |
 | http://localhost:5173 | Landing page: links to the attendee and organizer workflows |
 | http://localhost:5173/user-onboarding | The attendee app |
-| http://localhost:5173/host | The host view: setup, runs, review, publish, check-ins |
+| http://localhost:5173/host | The organizer console (also `/organizer-workflow`): event, tables, signup QR, matching, updates |
+| http://localhost:5173/host/review | Detailed review: runs, metrics, AI judge, people, check-ins |
 | http://localhost:5173/classic | The original single-page attendee app |
-| http://localhost:5173/organizer-workflow | Organizer workflow prototype (sample data) |
 | http://localhost:8000/docs | Conference API documentation |
 | http://localhost:8000/health | API, matching service, and Elasticsearch readiness |
 | http://localhost:9200 | Development Elasticsearch |
