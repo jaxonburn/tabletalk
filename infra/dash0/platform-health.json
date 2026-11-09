@@ -1,0 +1,395 @@
+{
+  "apiVersion": "perses.dev/v1alpha1",
+  "kind": "PersesDashboard",
+  "metadata": { "name": "tabletalk-platform-health" },
+  "spec": {
+    "display": {
+      "name": "TableTalk | Platform Health",
+      "description": "Kubernetes availability and resources, distributed tracing performance, errors, and application logs."
+    },
+    "duration": "1h",
+    "refreshInterval": "30s",
+    "panels": {
+      "context": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "From application behavior to Kubernetes" },
+          "plugin": {
+            "kind": "Markdown",
+            "spec": {
+              "text": "**Live workload telemetry already collected by TableTalk's OTel Collector.** Cluster: `tabletalk`, environment: `radar`; infrastructure is restricted to `team-tabletalk`.\n\nSpan charts include all traced operations, not just HTTP requests. Health endpoints are excluded from tracing; replica availability supplies the infrastructure signal. Kubernetes CPU rates need two or more scrapes. Empty data is not a healthy zero. The API must remain at one replica until distributed mutation coordination exists."
+            }
+          }
+        }
+      },
+      "availability": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Available / desired deployment replicas",
+            "description": "Aggregate availability across team deployments; not a user-facing uptime SLO."
+          },
+          "plugin": {
+            "kind": "StatChart",
+            "spec": {
+              "calculation": "instant",
+              "format": { "unit": "percent-decimal", "decimalPlaces": 0 }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "sum({otel_metric_name=\"kube_deployment_status_replicas_available\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\",k8s_namespace_name=\"team-tabletalk\"}) / sum({otel_metric_name=\"kube_deployment_spec_replicas\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\",k8s_namespace_name=\"team-tabletalk\"})",
+                    "seriesNameFormat": "Replica availability"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "restarts": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "Container restarts in last 15 minutes" },
+          "plugin": {
+            "kind": "StatChart",
+            "spec": {
+              "calculation": "instant",
+              "format": { "unit": "decimal", "decimalPlaces": 1 }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "sum(increase({otel_metric_name=\"kube_pod_container_status_restarts_total\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\",k8s_namespace_name=\"team-tabletalk\"}[15m]))",
+                    "seriesNameFormat": "Restarts (estimated)"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "cpu": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "CPU cores used by pod" },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "position": "bottom" },
+              "yAxis": {
+                "min": 0,
+                "format": { "unit": "decimal", "decimalPlaces": 3 }
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "sum by(k8s_pod_name)(rate({otel_metric_name=\"container_cpu_usage_seconds_total\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\",k8s_namespace_name=\"team-tabletalk\"}[2m]))",
+                    "seriesNameFormat": "{{k8s_pod_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "memory": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "Memory working set by pod" },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "position": "bottom" },
+              "yAxis": {
+                "min": 0,
+                "format": { "unit": "bytes", "shortValues": true }
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "sum by(k8s_pod_name)({otel_metric_name=\"container_memory_working_set_bytes\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\",k8s_namespace_name=\"team-tabletalk\"})",
+                    "seriesNameFormat": "{{k8s_pod_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "replicas": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Available versus desired replicas by deployment"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "position": "bottom" },
+              "yAxis": {
+                "min": 0,
+                "format": { "unit": "decimal", "decimalPlaces": 0 }
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "max by(k8s_deployment_name)({otel_metric_name=\"kube_deployment_status_replicas_available\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\",k8s_namespace_name=\"team-tabletalk\"})",
+                    "seriesNameFormat": "{{k8s_deployment_name}} available"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "max by(k8s_deployment_name)({otel_metric_name=\"kube_deployment_spec_replicas\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\",k8s_namespace_name=\"team-tabletalk\"})",
+                    "seriesNameFormat": "{{k8s_deployment_name}} desired"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "spans": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "Traced operations per second" },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "position": "bottom" },
+              "yAxis": {
+                "min": 0,
+                "format": { "unit": "decimal", "decimalPlaces": 2 }
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "sum by(service_name)(rate({otel_metric_name=\"dash0.spans\",service_name=~\"tabletalk-(api|matcher)\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"}[2m]))",
+                    "seriesNameFormat": "{{service_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "latency": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Traced operation p95 latency (5-minute window)",
+            "description": "Includes internal, client, and server spans. This is not an end-to-end request latency SLO."
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "position": "bottom" },
+              "yAxis": {
+                "min": 0,
+                "format": { "unit": "milliseconds", "decimalPlaces": 1 }
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "1000 * histogram_quantile(0.95,sum by(service_name)(rate({otel_metric_name=\"dash0.spans.duration\",service_name=~\"tabletalk-(api|matcher)\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"}[5m])))",
+                    "seriesNameFormat": "{{service_name}} p95"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "errors": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Errored traced operations in last 5 minutes",
+            "description": "Only spans marked ERROR, not all HTTP 4xx responses. No error spans may produce an empty chart rather than zero."
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "position": "bottom" },
+              "yAxis": {
+                "min": 0,
+                "format": { "unit": "decimal", "decimalPlaces": 0 }
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "sum by(service_name)(increase({otel_metric_name=\"dash0.spans\",otel_span_status_code=\"ERROR\",service_name=~\"tabletalk-(api|matcher)\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"}[5m]))",
+                    "seriesNameFormat": "{{service_name}} errors"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "logs": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Application logs by severity (5-minute window)"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "position": "bottom" },
+              "yAxis": {
+                "min": 0,
+                "format": { "unit": "decimal", "decimalPlaces": 0 }
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "sum by(service_name,otel_log_severity_range)(increase({otel_metric_name=\"dash0.logs\",service_name=~\"tabletalk-(api|matcher)\",k8s_cluster_name=\"tabletalk\",deployment_environment_name=\"radar\"}[5m]))",
+                    "seriesNameFormat": "{{service_name}} / {{otel_log_severity_range}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "layouts": [
+      {
+        "kind": "Grid",
+        "spec": {
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 24,
+              "height": 4,
+              "content": { "$ref": "#/spec/panels/context" }
+            },
+            {
+              "x": 0,
+              "y": 4,
+              "width": 12,
+              "height": 4,
+              "content": { "$ref": "#/spec/panels/availability" }
+            },
+            {
+              "x": 12,
+              "y": 4,
+              "width": 12,
+              "height": 4,
+              "content": { "$ref": "#/spec/panels/restarts" }
+            },
+            {
+              "x": 0,
+              "y": 8,
+              "width": 12,
+              "height": 8,
+              "content": { "$ref": "#/spec/panels/cpu" }
+            },
+            {
+              "x": 12,
+              "y": 8,
+              "width": 12,
+              "height": 8,
+              "content": { "$ref": "#/spec/panels/memory" }
+            },
+            {
+              "x": 0,
+              "y": 16,
+              "width": 12,
+              "height": 8,
+              "content": { "$ref": "#/spec/panels/replicas" }
+            },
+            {
+              "x": 12,
+              "y": 16,
+              "width": 12,
+              "height": 8,
+              "content": { "$ref": "#/spec/panels/spans" }
+            },
+            {
+              "x": 0,
+              "y": 24,
+              "width": 12,
+              "height": 8,
+              "content": { "$ref": "#/spec/panels/latency" }
+            },
+            {
+              "x": 12,
+              "y": 24,
+              "width": 12,
+              "height": 8,
+              "content": { "$ref": "#/spec/panels/errors" }
+            },
+            {
+              "x": 0,
+              "y": 32,
+              "width": 24,
+              "height": 8,
+              "content": { "$ref": "#/spec/panels/logs" }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

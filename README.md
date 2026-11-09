@@ -290,8 +290,116 @@ docker compose up --build -d
 
 Credentials stay in the Collector, never in the browser. Search query capture is
 disabled, and custom telemetry records counts rather than enrollment answers.
-Browser real-user monitoring, dashboards, and an SLO are follow-up work—not
-implemented yet.
+Browser real-user monitoring and an SLO remain follow-up work.
+
+### Import the three demo dashboards
+
+The ready-to-import Perses JSON files are:
+
+| File | Dashboard |
+| --- | --- |
+| [`infra/dash0/lunch-mission-control.json`](infra/dash0/lunch-mission-control.json) | Enrollment, room capacity, remaining seats, publication, saved runs, matching duration |
+| [`infra/dash0/matching-quality.json`](infra/dash0/matching-quality.json) | Matched versus random pair fit, weakest-person fit, Learn coverage, seating completeness, table size |
+| [`infra/dash0/platform-health.json`](infra/dash0/platform-health.json) | Kubernetes availability, restarts, CPU/memory, span throughput/latency/errors, log severity |
+
+In Dash0, select the dataset receiving the live Collector's telemetry. For each
+file: **Dashboards → + Add → Edit as JSON → upload/paste the file → Apply → Save**.
+No datasource setup, AI notes, or AI judge is needed. The queries use Dash0's
+`otel_metric_name` selectors and restrict data to cluster `tabletalk`, environment
+`radar`; infrastructure panels also restrict the namespace to `team-tabletalk`.
+
+**Deploy the API changes before demonstrating the first two dashboards.**
+The normal reviewed PR/main CI/GitOps path builds and deploys the new metrics.
+Platform Health uses already-collected telemetry and can be imported immediately.
+There is no automatic import or live deployment from a local checkout.
+
+For the demo:
+
+1. Open the host page. The API background loop refreshes enrollment and
+   assignment-health gauges even with no browser open (default every 10 seconds,
+   controlled by `AUTO_MATCH_POLL_SECONDS`).
+2. Before publishing, load fictional attendees and produce several draft runs
+   with **AI notes off**. Compare keyword-only and semantic retrieval if desired;
+   the charts label the actual retrieval mode, including fallbacks.
+3. Allow roughly 30–60 seconds for telemetry to arrive. Start with Mission
+   Control, show matched versus random seating in Matching Quality, then show
+   infrastructure and tracing in Platform Health.
+4. Publish the chosen draft last; publishing closes further matching for this
+   lunch. The publication gauge updates on the next background refresh or page poll.
+
+New metrics are not backfilled from older saved runs. Run counts and quality/
+duration histograms are cumulative since the API process started, not totals for
+the selected dashboard time range. Quality charts average each run equally;
+they measure heuristic fit, not real attendee satisfaction. Each random baseline
+uses 20 shuffles of the same attendees and table sizes. Learn coverage is omitted
+for runs without learners. Failed/unsaved runs do not contribute quality or
+successful-run latency samples. Repeated drafts count as separate observations.
+Missing telemetry stays missing rather than being displayed as a healthy zero.
+For local Compose telemetry, change/remove the cluster/environment filters in
+the imported dashboard; Kubernetes panels require the hosted Collector.
+
+### Enable assignment and platform alerts
+
+[`infra/dash0/check-rules.json`](infra/dash0/check-rules.json) contains seven
+Dash0 check definitions, **enabled when applied**. Missing metric data does not
+trigger any of these checks:
+
+| Check | Trigger |
+| --- | --- |
+| Attendees unassigned after cutoff | At least one enrolled person absent from the published plan, more than 2 minutes after the configured cutoff, sustained for 1 minute |
+| Published singleton table | A published table contains exactly one person |
+| Invalid seating plan rejected | Matcher rejected a seating invariant violation; stays failed until that matcher process is replaced |
+| Automatic matching failed | Failed outcome for the current enabled cutoff, with no published plan |
+| Deployment replicas unavailable | Available replicas below desired for 1 minute |
+| Assignment telemetry stale | Recently received measurements report a snapshot older than 2 minutes, sustained for 1 minute; no data does not alert |
+| Slow successful matching runs | Provisional p95 above 30 seconds, with at least 3 observations in 15 minutes; tune before enabling |
+
+Deploy both API and matcher changes first. Reapply the updated Mission Control
+dashboard to see unassigned count, singleton count, automatic-match failure, and
+snapshot age. Assignment checks require a fresh background snapshot. The staleness
+check requires a measurement received within 2 minutes; total telemetry loss does
+not alert. No-data silence is not proof of healthy assignments.
+No configured cutoff means the deadline alert is intentionally inactive.
+Before publication, everyone is counted as unassigned, even with a complete draft.
+Historical auto-match failures for a different cutoff are ignored.
+
+**Import all checks once using Dash0's API**, not the dashboard JSON editor.
+Copy your API base URL from **Settings → Endpoints → API**, select the exact live
+dataset, and use an auth token permitted to manage checks (not just ingest
+telemetry). Set `DASH0_API_URL`, `DASH0_DATASET`, and `DASH0_API_TOKEN` in your shell;
+never put the token in source, a URL, or chat. Do not derive the API URL from
+the OTLP endpoint.
+
+```bash
+curl --silent --show-error --fail-with-body \
+  --request POST \
+  --url-query "dataset=${DASH0_DATASET:?Set the live dataset}" \
+  --header "Authorization: Bearer ${DASH0_API_TOKEN:?Set a check-management token}" \
+  --header "Content-Type: application/json" \
+  --data-binary @infra/dash0/check-rules.json \
+  "${DASH0_API_URL:?Set the Dash0 API base URL}/api/import/check-rules"
+```
+
+The bulk import is a one-time migration, **not idempotent**: do not repeat it
+blindly or you may create duplicate checks. Expected response: `{"created":7}`.
+Alternatively, create each check through **Alerting → Checks → Add → PromQL**,
+copying its `expression`, critical threshold (`thresholds.failed`), interval,
+and grace period (`for`) from the file. Keep `$__threshold` in each expression.
+An Admin or dataset Maintainer is required.
+
+Create a destination under **Settings → Notification Channels**, send its test
+notification, then select that channel in each check's Notifications section.
+Review the grace periods and provisional latency threshold before applying;
+the definitions enable evaluation immediately, but do not create a notification
+channel. Disable individual checks in Dash0 when they are not wanted.
+
+For a safe demo on a fresh fictional, unpublished lunch: create a draft, set a
+near-future cutoff with automatic matching off, and wait without publishing.
+The unassigned check should fire approximately 3–4 minutes after the cutoff
+(2-minute allowance, 1-minute pending period, plus evaluation/export delay).
+Publish the reviewed draft to resolve it. Do not corrupt real plans or reset
+an already-published live event just to manufacture singleton failures.
+These checks do not authorize an agent to publish, change seats, or scale the API.
 
 ## Live hackathon deployment
 

@@ -40,7 +40,7 @@ from tabletalk_matcher.affinity import Affinity, affinity_query, combine_directe
 from tabletalk_matcher.enrichment import enrich
 from tabletalk_matcher.judge import judge_plan
 from tabletalk_matcher.llm_notes import narrate_plan
-from tabletalk_matcher.matching import build_plan
+from tabletalk_matcher.matching import InvalidPlanError, build_plan
 from tabletalk_matcher.sizing import SeatingError
 
 logger = logging.getLogger(__name__)
@@ -69,6 +69,11 @@ app = FastAPI(title="TableTalk Matching Service", lifespan=lifespan)
 shutdown_telemetry = configure_telemetry(app, "tabletalk-matcher")
 register_storage_errors(app)
 group_counter = metrics.get_meter(__name__).create_counter("tabletalk.matching.groups_created")
+invalid_plan_counter = metrics.get_meter(__name__).create_counter(
+    "tabletalk.matching.invalid_plans",
+    description="Rejected seating invariant violations since matcher process start.",
+)
+invalid_plan_counter.add(0)
 
 
 def get_client(request: Request) -> AsyncElasticsearch:
@@ -137,6 +142,10 @@ async def compute_run(request: RunRequest, client: Client, http_request: Request
             seed=request.seed,
             min_table_size=request.min_table_size,
         )
+    except InvalidPlanError:
+        invalid_plan_counter.add(1)
+        logger.error("Invalid seating plan rejected; no assignments were returned.")
+        raise
     except SeatingError as error:
         raise HTTPException(409, str(error)) from error
     plan = plan.model_copy(update={"retrieval": retrieval})

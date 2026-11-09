@@ -1,12 +1,13 @@
 import asyncio
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 from tabletalk_api import main
+from tabletalk_api.observability import DashboardMetrics
 from tabletalk_matcher.affinity import Affinity, lexical_directed_scores
 from tabletalk_matcher.matching import build_plan
 from tabletalk_shared.fixtures import load_fixture
@@ -248,12 +249,46 @@ class TestCutoffWatcher:
             raise RuntimeError("storage blip")
 
         monkeypatch.setattr(main, "run_due_cutoff", flaky)
+        refresh = AsyncMock()
+        monkeypatch.setattr(main, "refresh_dashboard_metrics", refresh)
         task = asyncio.create_task(main.cutoff_watcher(api[1], 0.01))
         await asyncio.sleep(0.08)
         task.cancel()
         with pytest.raises(asyncio.CancelledError):
             await task
         assert calls >= 2
+        assert refresh.await_count >= 2
+
+    async def test_background_refresh_does_not_need_browser_requests(
+        self, api: Api, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        attendees = people(4)
+        event = EventConfig(enrollment_closes_at=NOW)
+        telemetry = Mock(spec=DashboardMetrics)
+        monkeypatch.setattr(main, "dashboard_metrics", telemetry)
+        monkeypatch.setattr(main, "list_attendees", AsyncMock(return_value=attendees))
+        monkeypatch.setattr(main, "read_event", AsyncMock(return_value=event))
+        monkeypatch.setattr(main, "utc_now", lambda: NOW)
+        await main.refresh_dashboard_metrics(api[1])
+        telemetry.record_event.assert_called_once_with(4, event, published=False)
+        telemetry.record_assignment_health.assert_called_once_with(
+            attendees, event, None, None, NOW
+        )
+
+    async def test_telemetry_errors_do_not_block_cutoff_processing(
+        self, api: Api, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        cutoff = AsyncMock()
+        monkeypatch.setattr(main, "run_due_cutoff", cutoff)
+        monkeypatch.setattr(
+            main, "refresh_dashboard_metrics", AsyncMock(side_effect=RuntimeError("storage blip"))
+        )
+        task = asyncio.create_task(main.cutoff_watcher(api[1], 0.01))
+        await asyncio.sleep(0.08)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert cutoff.await_count >= 2
 
     def test_host_state_reports_what_the_watcher_did(
         self, api: Api, monkeypatch: pytest.MonkeyPatch
