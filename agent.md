@@ -86,6 +86,21 @@ Dependency changes require updating the appropriate lockfile and rebuilding.
 CI mirrors these checks. Backend tests isolate Elasticsearch calls; use the live
 Compose stack to verify actual relevance, persistence, and trace propagation.
 
+## Feature branch workflow
+
+Start every new feature from the latest `main`, on a separate feature branch.
+With a clean working tree, run:
+
+```bash
+git switch main
+git pull --ff-only origin main
+git switch -c feature/short-description
+```
+
+Keep feature work off `main`. Open a pull request targeting `main` so Gitar can
+review the changes and CI can run before merging. Before starting another feature,
+repeat this workflow to pick up the latest merged changes.
+
 ## Rules for extending the project
 
 - Keep Elasticsearch central to retrieval and persistence. Add vectors/hybrid
