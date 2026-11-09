@@ -1560,6 +1560,8 @@ export function initOnboarding(root: HTMLElement): () => void {
     questions = [];
     questionIndex = 0;
     resetQuestion();
+    // Kept on this page only; never sent with the enrollment.
+    input("wheelchair").checked = false;
   }
 
   /** Put a saved enrollment back into the form, so editing starts from it. */
