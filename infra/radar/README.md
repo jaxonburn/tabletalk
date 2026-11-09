@@ -33,6 +33,9 @@ and Serverless are supported: Serverless manages its own shards/replicas, and
 readiness searches our indices rather than calling the unsupported cluster-health
 API. The API has one worker, one replica and `Recreate` rollouts to prevent
 overlapping writers. Don't add autoscaling without distributed coordination.
+The matcher has two replicas. Both backends prefer separate nodes to reduce
+shared-node failures; this is best-effort placement, not a guarantee. The web
+startup probe allows up to two minutes before liveness checks begin.
 
 Service `app` on port 80 is required by the platform's HTTPS routing. No Ingress,
 LoadBalancer, or NodePort is needed. The starter's HTTPRoute is retained in Git
