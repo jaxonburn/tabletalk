@@ -102,37 +102,62 @@ function MetricsBar({ metrics }: { metrics: MatchMetrics }) {
 function HostTableCard({
   group,
   verdict,
+  checkIns,
 }: {
   group: LunchGroup;
   verdict?: TableVerdict;
+  checkIns?: Record<string, string>;
 }) {
   const label =
     group.table_number != null
       ? `Table ${group.table_number}`
       : group.id.replace("table-", "Table ");
+  const seated = checkIns
+    ? group.members.filter((member) => checkIns[member.id]).length
+    : null;
   return (
     <article className="table-card">
       <div className="card-heading">
-        <h3>{label}</h3>
+        <h3>
+          {label}
+          {group.name ? ` · ${group.name}` : ""}
+        </h3>
         <span className="badge">
           {group.members.length} people
+          {seated != null ? ` · ${seated} seated` : ""}
           {group.narrative_source === "llm" ? " · AI notes" : ""}
           {verdict ? ` · judge ${verdict.score}/5` : ""}
         </span>
       </div>
+      {group.tagline && group.tagline.length > 0 && (
+        <p className="muted">{group.tagline.join(" ")}</p>
+      )}
       {verdict && <p className="judge-note">AI judge: {verdict.rationale}</p>}
       <ul className="member-list">
         {group.members.map((member) => (
           <li key={member.id}>
             <div>
-              <strong>{member.name}</strong>
+              <strong>
+                {member.name}
+                {checkIns?.[member.id] ? " ✓ seated" : ""}
+              </strong>
               <span className="muted">
-                {member.role} · {member.interests.join(", ")}
+                {[member.role, member.company].filter(Boolean).join(" · ")} ·{" "}
+                {member.interests.join(", ")}
               </span>
             </div>
           </li>
         ))}
       </ul>
+      {group.topics && group.topics.length > 0 && (
+        <p className="tags">
+          {group.topics.map((topic) => (
+            <span key={topic} className="tag">
+              {topic}
+            </span>
+          ))}
+        </p>
+      )}
       <div className="match-reasons">
         <p className="eyebrow">What this table can talk about</p>
         <p>{group.summary || "No summary for this table."}</p>
@@ -281,6 +306,8 @@ function SetupCard({
   const [minSize, setMinSize] = useState(event.min_table_size);
   const [autoMatch, setAutoMatch] = useState(event.auto_match ?? false);
   const [autoPublish, setAutoPublish] = useState(event.auto_publish ?? false);
+  const [lunchTime, setLunchTime] = useState(event.lunch_time ?? "");
+  const [location, setLocation] = useState(event.location ?? "");
   const [quickCount, setQuickCount] = useState(3);
   const [quickSeats, setQuickSeats] = useState(5);
   const seats = tables.reduce((total, table) => total + table.seats, 0);
@@ -301,6 +328,8 @@ function SetupCard({
       min_table_size: minSize,
       auto_match: autoMatch,
       auto_publish: autoMatch && autoPublish,
+      lunch_time: lunchTime,
+      location,
     });
   }
 
@@ -430,6 +459,26 @@ function SetupCard({
                 max={6}
                 value={minSize}
                 onChange={(e) => setMinSize(Number(e.target.value))}
+              />
+            </label>
+          </div>
+          <div className="form-row">
+            <label>
+              Lunch time (shown to attendees)
+              <input
+                maxLength={80}
+                value={lunchTime}
+                onChange={(e) => setLunchTime(e.target.value)}
+                placeholder="12:30–1:15"
+              />
+            </label>
+            <label>
+              Location
+              <input
+                maxLength={80}
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="Main hall"
               />
             </label>
           </div>
@@ -1010,6 +1059,11 @@ export default function HostApp() {
                       key={group.id}
                       group={group}
                       verdict={verdicts.get(group.table_number ?? null)}
+                      checkIns={
+                        run.id === state.published_run_id
+                          ? (state.check_ins ?? {})
+                          : undefined
+                      }
                     />
                   ))}
                 </div>

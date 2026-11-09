@@ -34,6 +34,20 @@ def main() -> None:
         assert client.get("/api/me").status_code == 401
         waiting = client.get("/api/me", headers=token).json()
         assert waiting["status"] == "open" and waiting["assignment"] is None
+        edit = {
+            "name": "Demo Guest",
+            "role": "Staff engineer",
+            "company": "Demo Co",
+            "interests": ["kubernetes", "observability"],
+            "goals": ["Learn"],
+            "focus_goal": "Learn",
+            "goal_answers": {"Learn": "How do you trace requests across services?"},
+        }
+        edited = client.put("/api/me", json=edit, headers=token)
+        edited.raise_for_status()
+        assert edited.json()["attendee"]["id"] == enrolled.json()["id"]
+        assert edited.json()["attendee"]["company"] == "Demo Co"
+        assert client.post("/api/me/check-in", headers=token).status_code == 409
         draft = client.post("/api/host/runs", json={"seed": 3})
         draft.raise_for_status()
         run = draft.json()
@@ -60,6 +74,13 @@ def main() -> None:
         )
         assert seated["table_number"] == my_table["table_number"]
         assert len(seated["tablemates"]) == len(my_table["members"]) - 1
+        assert seated["table_name"] and len(seated["tagline"]) == 2 and seated["seats"]
+        assert client.put("/api/me", json=edit, headers=token).status_code == 409
+        checked_in = client.post("/api/me/check-in", headers=token)
+        checked_in.raise_for_status()
+        assert checked_in.json()["checked_in_at"]
+        check_ins = client.get("/api/host/state").json()["check_ins"]
+        assert enrolled.json()["id"] in check_ins
         assert client.post("/api/enrollments", json=enrolled.json()).status_code == 422
         assert (
             client.post(
@@ -79,8 +100,8 @@ def main() -> None:
         assert client.put("/api/host/event", json={}).status_code == 409
         assert client.get("/api/host/state").json()["status"] == "published"
     print(
-        "Live demo passed: enrollment, attendee tokens, seeding, draft runs, publishing, "
-        "personal tables, group allocation, explanations, and idempotence."
+        "Live demo passed: enrollment, edits, attendee tokens, seeding, draft runs, "
+        "publishing, personal tables, check-in, group allocation, explanations, and idempotence."
     )
 
 

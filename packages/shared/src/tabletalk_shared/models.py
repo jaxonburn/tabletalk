@@ -17,6 +17,7 @@ GROUP_SIZE = 4
 MAX_ATTENDEES = 100
 
 ShortText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
+OptionalShortText = Annotated[str, StringConstraints(strip_whitespace=True, max_length=80)]
 Answer = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
 OptionalAnswer = Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)]
 Topic = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50)]
@@ -44,6 +45,7 @@ class Enrollment(BaseModel):
     goal_answers: dict[Goal, Answer] = Field(default_factory=dict)
     # Short "what I can offer" / "what I'm looking for" topics. The Learn/Share/Connect
     # onboarding answers each selected goal instead, so these are optional there.
+    company: OptionalShortText = ""
     can_help: OptionalAnswer = ""
     want_to_learn: OptionalAnswer = ""
     lunch_slot: str = LUNCH_SLOT
@@ -139,6 +141,10 @@ class LunchGroup(BaseModel):
     starters: list[str] = Field(default_factory=list)
     member_notes: list[MemberNote] = Field(default_factory=list)
     narrative_source: NarrativeSource = "template"
+    # A short, friendly table name ("The Kubernetes Table") and a two-line tagline.
+    name: str = ""
+    tagline: list[str] = Field(default_factory=list)
+    topics: list[str] = Field(default_factory=list)
 
 
 class MatchMetrics(BaseModel):
@@ -185,6 +191,9 @@ class EventConfig(BaseModel):
     # Step 7: run matching on its own at the cutoff, and optionally publish the result.
     auto_match: bool = False
     auto_publish: bool = False
+    # Shown to attendees with their table.
+    lunch_time: OptionalShortText = "12:30–1:15"
+    location: OptionalShortText = "Main hall"
 
     @field_validator("tables")
     @classmethod
@@ -312,9 +321,15 @@ class HostState(BaseModel):
     server_time: datetime
     llm: LLMStatus | None = None
     auto: AutoMatchState | None = None
+    # Attendee ID -> when they tapped "I'm seated" at their published table.
+    check_ins: dict[str, datetime] = Field(default_factory=dict)
 
 
 class GoalPrompt(BaseModel):
+    """How a goal is presented during onboarding. The API is the source of truth."""
+
+    label: str
+    short: str
     question: str
     example_hint: str
 
@@ -330,6 +345,7 @@ class Tablemate(BaseModel):
 
     first_name: str
     role: str
+    company: str = ""
     interests: list[str]
 
 
@@ -341,6 +357,12 @@ class MyAssignment(BaseModel):
     table_summary: str
     table_starters: list[str]
     narrative_source: NarrativeSource
+    table_name: str = ""
+    tagline: list[str] = Field(default_factory=list)
+    topics: list[str] = Field(default_factory=list)
+    seats: int | None = None
+    lunch_time: str = ""
+    location: str = ""
 
 
 class MyStatus(BaseModel):
@@ -348,6 +370,7 @@ class MyStatus(BaseModel):
     status: EnrollmentStatus
     enrollment_closes_at: datetime | None
     assignment: MyAssignment | None
+    checked_in_at: datetime | None = None
 
 
 class ConferenceState(BaseModel):
@@ -364,3 +387,5 @@ class ConferenceState(BaseModel):
     enrollment_closes_at: datetime | None = None
     capacity: int = MAX_ATTENDEES
     goal_prompts: dict[str, GoalPrompt] = Field(default_factory=dict)
+    lunch_time: str = ""
+    location: str = ""

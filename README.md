@@ -12,13 +12,13 @@ app, and Gitar for reviewing the work as we build.
 
 ## What's here
 
-- A React enrollment experience: name, role, interests, what you can offer, and what
-  you're looking for. Choose one or more lunch goals: learn, share something you've
-  learned, or make connections.
-- A mobile-first attendee onboarding prototype at `/user-onboarding`: about you,
-  interests, goals with a starred focus and a question per goal, then a waiting
-  room, a sample table, check-in, and icebreakers. It runs on sample data and
-  isn't connected to the API yet.
+- A mobile-first attendee app at `/`: about you (name, title, company), interests,
+  and Learn / Share / Connect goals with a starred focus and a question per goal.
+  Then a waiting room that checks for your table, the table reveal (a named table,
+  your tablemates, why you're there, topics), "I'm seated" check-in, and
+  conversation starters. You can edit your answers until sign-ups close, and the
+  page picks up where you left off on the same device.
+- The original single-page enrollment app, kept at `/classic`.
 - Twelve fictional attendees to get a demo going quickly.
 - Elasticsearch-powered matching based on shared topics, complementary goals, and
   the things people can offer and want to learn.
@@ -76,9 +76,9 @@ token for the host view and host API.
 
 | Local URL | What's there |
 | --- | --- |
-| http://localhost:5173 | The attendee app |
-| http://localhost:5173/host | The host view: setup, runs, review, publish |
-| http://localhost:5173/user-onboarding | Attendee onboarding prototype |
+| http://localhost:5173 | The attendee app (also `/user-onboarding`) |
+| http://localhost:5173/host | The host view: setup, runs, review, publish, check-ins |
+| http://localhost:5173/classic | The original single-page attendee app |
 | http://localhost:8000/docs | Conference API documentation |
 | http://localhost:8000/health | API, matching service, and Elasticsearch readiness |
 | http://localhost:9200 | Development Elasticsearch |

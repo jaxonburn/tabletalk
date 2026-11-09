@@ -12,6 +12,7 @@ from tabletalk_matcher.affinity import (
     shared_phrases,
 )
 from tabletalk_matcher.matching import InvalidPlanError, build_plan, validate_seating
+from tabletalk_matcher.narratives import name_tables
 from tabletalk_matcher.optimizer import assign_tables, table_score
 from tabletalk_matcher.sizing import SeatingError, TablePlan, plan_table_sizes
 from tabletalk_shared.fixtures import load_fixture
@@ -147,6 +148,24 @@ class TestFixtureQuality:
                 text = " ".join([note.summary, *note.starters])
                 # Notes may only mention people who are actually at this table.
                 assert {name for name in everyone if name in text} <= tablemates
+
+    def test_every_table_gets_a_name_tagline_and_topics_from_its_people(self) -> None:
+        plan, _ = fixture_plan()
+        for group in plan.groups:
+            interests = {topic for member in group.members for topic in member.interests}
+            assert group.name.startswith("The ") and group.name.endswith(" table")
+            assert len(group.tagline) == 2
+            assert 1 <= len(group.topics) <= 3
+            assert set(group.topics) <= interests
+        assert len({group.name for group in plan.groups}) == len(plan.groups)
+
+    def test_tables_that_share_a_theme_still_get_different_names(self) -> None:
+        fixture = load_fixture()
+        people = [entry.attendee for entry in fixture.attendees]
+        twins = [people[:3], [p.model_copy(update={"id": f"{p.id}-b"}) for p in people[:3]]]
+        (first, first_line), (second, second_line) = name_tables(twins)
+        assert first != second
+        assert first_line != second_line
 
 
 class TestSharedPhrases:

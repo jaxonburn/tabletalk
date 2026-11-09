@@ -16,6 +16,7 @@ export interface Enrollment {
   goals: Goal[];
   focus_goal?: Goal | null;
   goal_answers?: Partial<Record<Goal, string>>;
+  company?: string;
   can_help?: string;
   want_to_learn?: string;
   lunch_slot: string;
@@ -32,6 +33,8 @@ export interface EnrolledAttendee extends Attendee {
 }
 
 export interface GoalPrompt {
+  label?: string;
+  short?: string;
   question: string;
   example_hint: string;
 }
@@ -39,6 +42,7 @@ export interface GoalPrompt {
 export interface Tablemate {
   first_name: string;
   role: string;
+  company?: string;
   interests: string[];
 }
 
@@ -50,6 +54,12 @@ export interface MyAssignment {
   table_summary: string;
   table_starters: string[];
   narrative_source: "template" | "llm";
+  table_name?: string;
+  tagline?: string[];
+  topics?: string[];
+  seats?: number | null;
+  lunch_time?: string;
+  location?: string;
 }
 
 export interface MyStatus {
@@ -57,6 +67,7 @@ export interface MyStatus {
   status: EnrollmentStatus;
   enrollment_closes_at: string | null;
   assignment: MyAssignment | null;
+  checked_in_at?: string | null;
 }
 
 export interface MemberNote {
@@ -74,6 +85,9 @@ export interface LunchGroup {
   starters?: string[];
   member_notes?: MemberNote[];
   narrative_source?: "template" | "llm";
+  name?: string;
+  tagline?: string[];
+  topics?: string[];
 }
 
 export interface MatchMetrics {
@@ -115,6 +129,8 @@ export interface ConferenceState {
   enrollment_closes_at?: string | null;
   capacity?: number;
   goal_prompts?: Partial<Record<Goal, GoalPrompt>>;
+  lunch_time?: string;
+  location?: string;
 }
 
 export interface TableSpec {
@@ -128,6 +144,8 @@ export interface EventConfig {
   min_table_size: number;
   auto_match?: boolean;
   auto_publish?: boolean;
+  lunch_time?: string;
+  location?: string;
 }
 
 export interface AutoMatchState {
@@ -202,6 +220,7 @@ export interface HostState {
   server_time: string;
   llm?: LLMStatus | null;
   auto?: AutoMatchState | null;
+  check_ins?: Record<string, string>;
 }
 
 export class ApiError extends Error {

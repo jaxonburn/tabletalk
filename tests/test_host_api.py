@@ -224,6 +224,31 @@ class TestRuns:
         assert "setup changed" in response.json()["detail"]
         save.assert_not_awaited()
 
+    def test_publish_refuses_a_run_made_before_someone_edited_their_answers(
+        self, api: Api, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        client, _ = api
+        monkeypatch.setattr(main, "read_run", AsyncMock(return_value=make_run(people(4))))
+        edited = people(4)
+        edited[2] = edited[2].model_copy(update={"role": "Changed role"})
+        monkeypatch.setattr(main, "list_attendees", AsyncMock(return_value=edited))
+        save = AsyncMock()
+        monkeypatch.setattr(main, "save_plan", save)
+        response = client.post("/api/host/runs/run-1/publish")
+        assert response.status_code == 409
+        assert "edited their answers" in response.json()["detail"]
+        save.assert_not_awaited()
+
+    def test_publish_ignores_tags_the_matcher_added(
+        self, api: Api, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        client, _ = api
+        tagged = [a.model_copy(update={"topic_tags": ["k8s"]}) for a in people(4)]
+        monkeypatch.setattr(main, "read_run", AsyncMock(return_value=make_run(tagged)))
+        monkeypatch.setattr(main, "list_attendees", AsyncMock(return_value=people(4)))
+        monkeypatch.setattr(main, "save_plan", AsyncMock(side_effect=lambda _c, plan: plan))
+        assert client.post("/api/host/runs/run-1/publish").status_code == 200
+
     def test_publish_saves_the_run_plan(self, api: Api, monkeypatch: pytest.MonkeyPatch) -> None:
         client, _ = api
         run = make_run(people(4))

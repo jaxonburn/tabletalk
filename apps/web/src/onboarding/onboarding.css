@@ -2032,9 +2032,19 @@
 #tabletalk-auto .ta-seat-bento {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  grid-template-rows: 96px 96px 96px 60px;
+  /* Later rows size to the seats a table actually has. */
+  grid-template-rows: 96px 96px;
+  grid-auto-rows: auto;
   gap: 8px;
   margin-top: 12px;
+}
+#tabletalk-auto .ta-s1,
+#tabletalk-auto .ta-s2,
+#tabletalk-auto .ta-s3 {
+  min-height: 96px;
+}
+#tabletalk-auto .ta-seat[hidden] {
+  display: none;
 }
 #tabletalk-auto .ta-table-tile {
   grid-column: span 2;
@@ -2150,6 +2160,7 @@
   animation-delay: 0.42s;
 }
 #tabletalk-auto .ta-open {
+  min-height: 60px;
   grid-column: 1/-1;
   flex-direction: row;
   gap: 10px;
@@ -2180,7 +2191,15 @@
 }
 @media (max-width: 390px) {
   #tabletalk-auto .ta-seat-bento {
-    grid-template-rows: 88px 88px 84px 56px;
+    grid-template-rows: 88px 88px;
+  }
+  #tabletalk-auto .ta-s1,
+  #tabletalk-auto .ta-s2,
+  #tabletalk-auto .ta-s3 {
+    min-height: 84px;
+  }
+  #tabletalk-auto .ta-open {
+    min-height: 56px;
   }
   #tabletalk-auto .ta-table-when {
     font-size: 11px;
@@ -2260,4 +2279,25 @@ body:has(#tabletalk-auto) {
   #tabletalk-auto h2 {
     font-size: 38px;
   }
+}
+
+#tabletalk-auto .ta-notice {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.07);
+  font-size: 14px;
+  line-height: 1.45;
+}
+#tabletalk-auto .ta-notice[hidden],
+#tabletalk-auto .ta-field-error[hidden] {
+  display: none;
+}
+#tabletalk-auto .ta-footer-link {
+  color: inherit;
+}
+#tabletalk-auto .ta-primary[aria-busy="true"] {
+  opacity: 0.7;
+  cursor: progress;
 }

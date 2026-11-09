@@ -15,7 +15,7 @@ from typing import Any
 from elasticsearch import AsyncElasticsearch
 from opentelemetry import trace
 from tabletalk_shared.llm import STRING, STRING_LIST, Embedder, LLMClient, LLMError, strict_object
-from tabletalk_shared.models import Attendee
+from tabletalk_shared.models import Attendee, Enrollment
 from tabletalk_shared.storage import ATTENDEES_INDEX, VECTOR_FIELDS
 
 from tabletalk_matcher.affinity import connect_text, learn_text, share_text
@@ -81,28 +81,77 @@ def clean_tags(raw: object) -> list[str]:
     return tags[:MAX_TAGS]
 
 
-async def _stored(client: AsyncElasticsearch, ids: list[str]) -> dict[str, dict[str, Any]]:
+ENROLLMENT_FIELDS = set(Enrollment.model_fields)
+
+
+async def _stored(
+    client: AsyncElasticsearch, attendees: list[Attendee]
+) -> dict[str, dict[str, Any]]:
+    """Saved enrichment for profiles still exactly as in the snapshot.
+
+    Someone who edited their answers since the snapshot is left out, so vectors and tags
+    from their old answers are never written onto the new profile.
+    """
     response = await client.search(
         index=ATTENDEES_INDEX,
-        query={"terms": {"id": ids}},
-        size=len(ids),
+        query={"terms": {"id": [attendee.id for attendee in attendees]}},
+        size=len(attendees),
+        seq_no_primary_term=True,
         # Elasticsearch 9 leaves dense vectors out of _source unless asked explicitly.
-        source={
-            "includes": ["id", "embedding_model", "tags_model", "topic_tags", *VECTOR_FIELDS],
-            "exclude_vectors": False,
-        },
+        source={"exclude_vectors": False},
     )
-    return {hit["_id"]: hit["_source"] for hit in response["hits"]["hits"]}
+    snapshot = {attendee.id: attendee for attendee in attendees}
+    stored = {}
+    for hit in response["hits"]["hits"]:
+        source = hit["_source"]
+        expected = snapshot.get(hit["_id"])
+        if expected is None:
+            continue
+        current = Attendee.model_validate(
+            {key: value for key, value in source.items() if key in Attendee.model_fields}
+        )
+        if current.model_dump(include=ENROLLMENT_FIELDS) != expected.model_dump(
+            include=ENROLLMENT_FIELDS
+        ):
+            continue
+        stored[hit["_id"]] = {
+            **source,
+            "_seq_no": hit["_seq_no"],
+            "_primary_term": hit["_primary_term"],
+        }
+    return stored
 
 
-async def _bulk_update(client: AsyncElasticsearch, docs: dict[str, dict[str, Any]]) -> None:
-    if not docs:
-        return
+async def _bulk_update(
+    client: AsyncElasticsearch,
+    docs: dict[str, dict[str, Any]],
+    stored: dict[str, dict[str, Any]],
+) -> None:
+    """Write enrichment only onto the exact version it was computed from."""
     operations: list[dict[str, Any]] = []
     for attendee_id, doc in docs.items():
-        operations += [{"update": {"_index": ATTENDEES_INDEX, "_id": attendee_id}}, {"doc": doc}]
+        version = stored.get(attendee_id)
+        if version is None:
+            continue
+        action = {
+            "_index": ATTENDEES_INDEX,
+            "_id": attendee_id,
+            "if_seq_no": version["_seq_no"],
+            "if_primary_term": version["_primary_term"],
+        }
+        operations += [{"update": action}, {"doc": doc}]
+    if not operations:
+        return
     response = await client.bulk(operations=operations, refresh="wait_for")
-    if response.get("errors"):
+    if not response.get("errors"):
+        return
+    failures = [
+        item["update"]
+        for item in response["items"]
+        if item.get("update", {}).get("error") and item["update"].get("status") != 409
+    ]
+    # 409 means the profile was edited mid-run; the next run enriches the new answers.
+    if failures:
         raise RuntimeError("Some enrichment updates were rejected by Elasticsearch.")
 
 
@@ -199,18 +248,21 @@ async def enrich(
         return attendees, result
     with tracer.start_as_current_span("matching.enrich") as span:
         ids = [attendee.id for attendee in attendees]
-        stored = await _stored(client, ids)
+        stored = await _stored(client, attendees)
+        # Profiles edited since the snapshot get no enrichment in this run.
+        attendees_to_enrich = [attendee for attendee in attendees if attendee.id in stored]
         updates: dict[str, dict[str, Any]] = {}
         if embedder is not None:
             try:
-                for attendee_id, doc in (await _embed_missing(attendees, stored, embedder)).items():
+                missing = await _embed_missing(attendees_to_enrich, stored, embedder)
+                for attendee_id, doc in missing.items():
                     updates.setdefault(attendee_id, {}).update(doc)
             except LLMError as error:
                 logger.warning("Embedding failed (%s); using BM25 only.", type(error).__name__)
         if llm is not None:
-            for attendee_id, doc in (await _tag_missing(attendees, stored, llm)).items():
+            for attendee_id, doc in (await _tag_missing(attendees_to_enrich, stored, llm)).items():
                 updates.setdefault(attendee_id, {}).update(doc)
-        await _bulk_update(client, updates)
+        await _bulk_update(client, updates, stored)
         result.embedded = sum(1 for doc in updates.values() if "embedding_model" in doc)
         result.tagged = sum(1 for doc in updates.values() if "topic_tags" in doc)
         for attendee_id in ids:

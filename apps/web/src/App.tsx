@@ -15,22 +15,15 @@ import {
   type Goal,
   type MyStatus,
 } from "./api";
+import {
+  ATTENDEE_TOKEN_KEY,
+  clearToken,
+  readToken,
+  storeToken,
+} from "./attendeeToken";
 import "./styles.css";
 
-export const ATTENDEE_TOKEN_KEY = "tabletalk-attendee-token";
-
-// Storage can be missing or blocked (privacy modes); the page then works for this session.
-function tokenStore(): Storage | null {
-  try {
-    return globalThis.localStorage ?? null;
-  } catch {
-    return null;
-  }
-}
-const readToken = () => tokenStore()?.getItem(ATTENDEE_TOKEN_KEY) ?? "";
-const storeToken = (token: string) =>
-  tokenStore()?.setItem(ATTENDEE_TOKEN_KEY, token);
-const clearToken = () => tokenStore()?.removeItem(ATTENDEE_TOKEN_KEY);
+export { ATTENDEE_TOKEN_KEY };
 const POLL_MS = 20_000;
 const emptyForm = { name: "", role: "", interests: "" };
 const fallbackPrompts: Record<
@@ -216,7 +209,7 @@ export default function App() {
   return (
     <div className="app-shell">
       <header className="site-header">
-        <a className="wordmark" href="/" aria-label="TableTalk home">
+        <a className="wordmark" href="/classic" aria-label="TableTalk home">
           <span className="logo-mark" aria-hidden="true">
             tt
           </span>
@@ -245,8 +238,8 @@ export default function App() {
               <span>Up to {conference?.group_size ?? 4} people per table</span>
               <span>Shared interests. New perspectives.</span>
             </div>
-            <a className="onboarding-link" href="/user-onboarding">
-              Try the new attendee onboarding
+            <a className="onboarding-link" href="/">
+              Switch to the new attendee experience
               <span aria-hidden="true">→</span>
             </a>
           </div>

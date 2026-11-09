@@ -1,6 +1,7 @@
 import hashlib
 import os
 from collections.abc import AsyncIterator
+from datetime import datetime
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -61,6 +62,7 @@ async def ensure_indices(client: AsyncElasticsearch) -> None:
                 "conference_id": {"type": "keyword"},
                 "lunch_slot": {"type": "keyword"},
                 "name": {"type": "keyword", "index": False},
+                "company": {"type": "keyword", "index": False},
                 "role": {"type": "text"},
                 "goals": {"type": "keyword"},
                 "focus_goal": {"type": "keyword"},
@@ -91,7 +93,10 @@ async def ensure_indices(client: AsyncElasticsearch) -> None:
             },
         },
         PLANS_INDEX: {"dynamic": False, "properties": {}},
-        EVENTS_INDEX: {"dynamic": False, "properties": {}},
+        EVENTS_INDEX: {
+            "dynamic": False,
+            "properties": {"kind": {"type": "keyword"}, "attendee_id": {"type": "keyword"}},
+        },
         RUNS_INDEX: {
             "dynamic": False,
             "properties": {"id": {"type": "keyword"}, "created_at": {"type": "date"}},
@@ -253,6 +258,51 @@ async def find_attendee_by_token(client: AsyncElasticsearch, token: str) -> Atte
     except NotFoundError:
         return None
     return Attendee.model_validate(result["_source"])
+
+
+async def update_attendee(client: AsyncElasticsearch, attendee: Attendee) -> None:
+    """Replace a profile. Replacing (not patching) also drops stale vectors and tags."""
+    await client.index(
+        index=ATTENDEES_INDEX, id=attendee.id, document=attendee.model_dump(), refresh="wait_for"
+    )
+
+
+def _check_in_id(attendee_id: str) -> str:
+    return f"{EVENT_ID}:checkin:{attendee_id}"
+
+
+async def save_check_in(client: AsyncElasticsearch, attendee_id: str, at: datetime) -> datetime:
+    """Record the first check-in only; repeating it keeps the original time."""
+    try:
+        await client.create(
+            index=EVENTS_INDEX,
+            id=_check_in_id(attendee_id),
+            document={"kind": "checkin", "attendee_id": attendee_id, "at": at.isoformat()},
+            refresh="wait_for",
+        )
+    except ConflictError:
+        existing = await read_check_in(client, attendee_id)
+        if existing is not None:
+            return existing
+    return at
+
+
+async def read_check_in(client: AsyncElasticsearch, attendee_id: str) -> datetime | None:
+    try:
+        result = await client.get(index=EVENTS_INDEX, id=_check_in_id(attendee_id))
+    except NotFoundError:
+        return None
+    return datetime.fromisoformat(result["_source"]["at"])
+
+
+async def list_check_ins(client: AsyncElasticsearch) -> dict[str, datetime]:
+    response = await client.search(
+        index=EVENTS_INDEX, query={"term": {"kind": "checkin"}}, size=MAX_ATTENDEES
+    )
+    return {
+        hit["_source"]["attendee_id"]: datetime.fromisoformat(hit["_source"]["at"])
+        for hit in response["hits"]["hits"]
+    }
 
 
 async def read_auto_state(client: AsyncElasticsearch) -> AutoMatchState | None:

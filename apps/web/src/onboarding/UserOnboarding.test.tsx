@@ -1,10 +1,147 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type {
+  ConferenceState,
+  EnrollmentStatus,
+  MyAssignment,
+  MyStatus,
+} from "../api";
+import { ATTENDEE_TOKEN_KEY } from "../attendeeToken";
 import UserOnboarding from "./UserOnboarding";
+import { POLL_MS } from "./onboarding";
 
-const learnQuestion =
-  "What questions do you have about the topics you want to learn?";
-const shareQuestion = "What would you enjoy helping someone with?";
+const learnQuestion = "What do you want to learn at lunch?";
+const shareQuestion = "What could you share?";
+
+const conference: ConferenceState = {
+  id: "cloud-native-hackathon",
+  name: "Cloud Native Hackathon",
+  lunch_slot: "day-1-lunch",
+  lunch_label: "Day 1 lunch",
+  group_size: 6,
+  attendees: [],
+  attendee_count: 3,
+  plan: null,
+  published: false,
+  status: "open",
+  enrollment_closes_at: "2026-11-10T18:40:00Z",
+  lunch_time: "12:30–1:15",
+  location: "Hall B",
+  goal_prompts: {
+    Learn: {
+      label: "Learn something",
+      short: "Questions",
+      question: learnQuestion,
+      example_hint: "Autoscaling for flash sales",
+    },
+    "Share something I've learned": {
+      label: "Share my expertise",
+      short: "Experience",
+      question: shareQuestion,
+      example_hint: "Tracing at scale",
+    },
+    "Meet connections": {
+      label: "Meet new people",
+      short: "People",
+      question: "What would you enjoy discussing?",
+      example_hint: "Platforms",
+    },
+  },
+};
+
+const attendee = {
+  id: "a1",
+  conference_id: "cloud-native-hackathon",
+  name: "Ada Lovelace",
+  role: "Engineer",
+  company: "Analytical Engines",
+  interests: ["kubernetes", "climate"],
+  goals: ["Share something I've learned" as const],
+  focus_goal: "Share something I've learned" as const,
+  goal_answers: { "Share something I've learned": "Sales and early growth." },
+  lunch_slot: "day-1-lunch",
+};
+
+const assignment: MyAssignment = {
+  table_number: 8,
+  tablemates: [
+    {
+      first_name: "Maya",
+      role: "Founder",
+      company: "Acme",
+      interests: ["sales"],
+    },
+    { first_name: "Jordan", role: "Designer", interests: ["product"] },
+  ],
+  summary: "Maya is building her first sales motion. You can help.",
+  starters: ["Ask Maya how she finds her first customers."],
+  table_summary: "This table shares an interest in early growth.",
+  table_starters: ["What did you ship before you felt ready?"],
+  narrative_source: "llm",
+  table_name: "The Builders' table",
+  tagline: ["Small bets.", "Big ideas."],
+  topics: ["sales", "product"],
+  seats: 5,
+  lunch_time: "12:30–1:15",
+  location: "Hall B",
+};
+
+function status(
+  overrides: Partial<MyStatus> = {},
+  value: EnrollmentStatus = "open",
+): MyStatus {
+  return {
+    attendee,
+    status: value,
+    enrollment_closes_at: conference.enrollment_closes_at ?? null,
+    assignment: null,
+    checked_in_at: null,
+    ...overrides,
+  };
+}
+
+function json(body: unknown, code = 200) {
+  return new Response(JSON.stringify(body), {
+    status: code,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+class MemoryStorage {
+  private values = new Map<string, string>();
+  getItem(key: string) {
+    return this.values.get(key) ?? null;
+  }
+  setItem(key: string, value: string) {
+    this.values.set(key, value);
+  }
+  removeItem(key: string) {
+    this.values.delete(key);
+  }
+  clear() {
+    this.values.clear();
+  }
+}
+
+type Handler = (init: RequestInit | undefined) => Response;
+let routes: Record<string, Handler>;
+let calls: { key: string; init?: RequestInit }[];
+let storage: MemoryStorage;
+
+function route(method: string, path: string, handler: Handler) {
+  routes[`${method} ${path}`] = handler;
+}
+
+function sent(key: string) {
+  const call = calls.filter((c) => c.key === key).at(-1);
+  return call?.init?.body ? JSON.parse(String(call.init.body)) : undefined;
+}
 
 function type(label: RegExp | string, value: string) {
   fireEvent.input(screen.getByLabelText(label), { target: { value } });
@@ -26,13 +163,34 @@ function completeAboutYou() {
   click(/Next: your interests/);
 }
 
+async function mount() {
+  render(<UserOnboarding />);
+  // The server's goal wording replaces the built-in copy once loaded.
+  await screen.findByText("Questions");
+}
+
 beforeEach(() => {
   // Reduced motion skips the template's animations and the matching delay.
   vi.stubGlobal(
     "matchMedia",
     vi.fn().mockReturnValue({ matches: true } as MediaQueryList),
   );
-  render(<UserOnboarding />);
+  storage = new MemoryStorage();
+  vi.stubGlobal("localStorage", storage);
+  routes = {};
+  calls = [];
+  route("GET", "/api/conference", () => json(conference));
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (path: string, init?: RequestInit) => {
+      const key = `${init?.method ?? "GET"} ${path}`;
+      calls.push({ key, init });
+      const handler = routes[key];
+      return handler
+        ? handler(init)
+        : json({ detail: `No route for ${key}` }, 404);
+    }),
+  );
 });
 
 afterEach(() => {
@@ -41,21 +199,32 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("user onboarding", () => {
-  it("asks for a name before moving on to interests", () => {
+describe("attendee onboarding", () => {
+  it("asks for a name, title, and an interest before moving on", async () => {
+    await mount();
     expect(heading(/First, a proper/)).toBeTruthy();
+    expect(screen.getByText("CLOUD NATIVE HACKATHON / LUNCH")).toBeTruthy();
     click(/Next: your interests/);
     expect(screen.getByText("Please add your first name.")).toBeTruthy();
-    expect(screen.getByText("Please add your last name.")).toBeTruthy();
-    expect(screen.queryByRole("heading", { name: /What gets you/ })).toBeNull();
+    expect(screen.getByText(/Please add your title/)).toBeTruthy();
 
     completeAboutYou();
     expect(document.activeElement).toBe(heading(/What gets you/));
+    click(/Next: your goals/);
+    expect(screen.getByText(/Pick at least one interest/)).toBeTruthy();
+    click("Kubernetes", "checkbox");
+    click(/Next: your goals/);
+    expect(heading(/Pick your goals/)).toBeTruthy();
   });
 
-  it("submits only the selected goals and their answers", () => {
+  it("enrolls with the server's goals and remembers this device", async () => {
+    route("POST", "/api/enrollments", () =>
+      json({ ...attendee, attendee_token: "secret-token" }, 201),
+    );
+    route("GET", "/api/me", () => json(status()));
+    await mount();
     completeAboutYou();
-    click("Startups", "checkbox");
+    click("Kubernetes", "checkbox");
     type("Add your own", "Climate");
     click("Add");
     click(/Next: your goals/);
@@ -70,78 +239,195 @@ describe("user onboarding", () => {
     expect(
       screen.getByText("2 goals selected · Focus: Share my expertise"),
     ).toBeTruthy();
-
     // A deselected goal keeps its draft answer but leaves the submission.
     click(/Learn something/, "checkbox");
-    const learnAnswer = screen.getByLabelText(
-      learnQuestion,
-    ) as HTMLTextAreaElement;
-    expect(learnAnswer.disabled).toBe(true);
-    expect(learnAnswer.value).toBe("How do teams find their first customers?");
     click(/Save my spot/);
 
-    expect(heading(/Good company/)).toBeTruthy();
-    expect(window.tabletalkPrototype?.getLastSubmission()).toEqual({
+    expect(
+      await screen.findByRole("heading", { name: /is on its way/ }),
+    ).toBeTruthy();
+    expect(sent("POST /api/enrollments")).toEqual({
       name: "Ada Lovelace",
       role: "Engineer",
       company: "Analytical Engines",
-      interests: ["Startups", "Climate"],
-      selected_goal_ids: ["share"],
-      focus_goal_id: "share",
-      goal_answers: { share: "Sales and early growth." },
+      interests: ["Kubernetes", "Climate"],
+      goals: ["Share something I've learned"],
+      focus_goal: "Share something I've learned",
+      goal_answers: {
+        "Share something I've learned": "Sales and early growth.",
+      },
+      lunch_slot: "day-1-lunch",
     });
+    expect(storage.getItem(ATTENDEE_TOKEN_KEY)).toBe("secret-token");
+    expect(screen.getByText("TABLE MATCHES OPEN AT")).toBeTruthy();
   });
 
-  it("reveals a sample table, checks you in, and deals a question", async () => {
+  it("shows the server's reason when enrollment fails", async () => {
+    route("POST", "/api/enrollments", () =>
+      json({ detail: "Enrollment for this lunch has closed." }, 409),
+    );
+    await mount();
     completeAboutYou();
+    click("Kubernetes", "checkbox");
     click(/Next: your goals/);
-    click("Select Share my expertise and make it your focus");
-    type(shareQuestion, "Outbound sales.");
+    click(/Meet new people/, "checkbox");
+    type("What would you enjoy discussing?", "Platforms");
     click(/Save my spot/);
-
-    click(/Simulate the 12:15 match/);
     expect(
-      screen.getByText("The wait is over, Ada. We found your table."),
+      await screen.findByText("Enrollment for this lunch has closed."),
+    ).toBeTruthy();
+  });
+
+  it("checks for a table, reveals it, checks you in, and deals questions", async () => {
+    storage.setItem(ATTENDEE_TOKEN_KEY, "saved-token");
+    let published = false;
+    let seated = false;
+    route("GET", "/api/me", () =>
+      json(
+        published ? status({ assignment }, "published") : status({}, "closed"),
+      ),
+    );
+    route("POST", "/api/me/check-in", () => {
+      seated = true;
+      return json(
+        status(
+          { assignment, checked_in_at: "2026-11-10T19:31:00Z" },
+          "published",
+        ),
+      );
+    });
+    await mount();
+    expect(await screen.findByText("SIGN-UPS ARE CLOSED")).toBeTruthy();
+    // Answers can't change once sign-ups close.
+    expect(document.getElementById("ta-wait-edit")?.hidden).toBe(true);
+
+    published = true;
+    click(/Check for my table now/);
+    expect(
+      await screen.findByText("The wait is over, Ada. We found your table."),
     ).toBeTruthy();
     click(/Meet my table/);
 
     expect(
       await screen.findByRole("heading", { name: /Found for you/ }),
     ).toBeTruthy();
+    expect(screen.getByText("THE BUILDERS' TABLE")).toBeTruthy();
     expect(screen.getByText(/Maya is building her first sales/)).toBeTruthy();
+    expect(screen.getByText("2 open seats · saved for a walk-in")).toBeTruthy();
+    expect(screen.getByText(/Founder · Acme/)).toBeTruthy();
     click(/I’m seated at Table 08/);
 
-    expect(heading(/You’re in/).textContent).toMatch(/You’re in,\s*Ada\./);
+    expect(
+      (await screen.findByRole("heading", { name: /You’re in/ })).textContent,
+    ).toMatch(/You’re in,\s*Ada\./);
+    expect(seated).toBe(true);
     expect(screen.getByText("Engineer · Analytical Engines")).toBeTruthy();
-    expect(window.tabletalkPrototype?.getCheckIn()?.table).toBe("08");
+    expect(document.getElementById("ta-when")?.textContent).toBe(
+      "12:30–1:15 · Hall B",
+    );
     click(/Break the ice/);
     expect(
-      screen.getByText(
-        "What’s a tiny frustration you’d happily build an entire company to fix?",
-      ),
+      screen.getByText("Ask Maya how she finds her first customers."),
+    ).toBeTruthy();
+    click(/Deal another question/);
+    expect(
+      screen.getByText("What did you ship before you felt ready?"),
     ).toBeTruthy();
   });
 
-  it("keeps the edit screen open when leaving during a pending match", () => {
-    vi.useFakeTimers();
-    completeAboutYou();
+  it("resumes an open enrollment and saves edits with PUT", async () => {
+    storage.setItem(ATTENDEE_TOKEN_KEY, "saved-token");
+    route("GET", "/api/me", () => json(status()));
+    route("PUT", "/api/me", () => json(status()));
+    await mount();
+    expect(
+      await screen.findByRole("heading", { name: /is on its way/ }),
+    ).toBeTruthy();
+
+    fireEvent.click(document.getElementById("ta-wait-edit")!);
+    expect((screen.getByLabelText(/Title/) as HTMLInputElement).value).toBe(
+      "Engineer",
+    );
+    type(/Title/, "Staff engineer");
+    click(/Next: your interests/);
+    expect(
+      (screen.getByRole("checkbox", { name: "Kubernetes" }) as HTMLInputElement)
+        .checked,
+    ).toBe(true);
     click(/Next: your goals/);
-    click("Select Share my expertise and make it your focus");
-    type(shareQuestion, "Outbound sales.");
-    click(/Save my spot/);
-    click(/Simulate the 12:15 match/);
-    click(/Meet my table/);
+    click(/Save my changes/);
 
-    click("Menu");
-    click(/Edit my details/);
-    vi.runOnlyPendingTimers();
-
-    expect(heading(/First, a proper/)).toBeTruthy();
+    await waitFor(() => expect(sent("PUT /api/me")).toBeDefined());
+    expect(sent("PUT /api/me").role).toBe("Staff engineer");
+    expect(sent("PUT /api/me").interests).toEqual(["Kubernetes", "climate"]);
+    expect(calls.some((c) => c.key === "POST /api/enrollments")).toBe(false);
   });
 
-  it("removes the development hook when the page unmounts", () => {
-    expect(window.tabletalkPrototype).toBeDefined();
-    cleanup();
-    expect(window.tabletalkPrototype).toBeUndefined();
+  it("stops checking once the table is found", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    storage.setItem(ATTENDEE_TOKEN_KEY, "saved-token");
+    let published = false;
+    route("GET", "/api/me", () =>
+      json(published ? status({ assignment }, "published") : status()),
+    );
+    await mount();
+    await screen.findByRole("heading", { name: /is on its way/ });
+    published = true;
+    vi.advanceTimersByTime(POLL_MS);
+    expect(
+      await screen.findByText("The wait is over, Ada. We found your table."),
+    ).toBeTruthy();
+    const checks = calls.filter((c) => c.key === "GET /api/me").length;
+    vi.advanceTimersByTime(POLL_MS * 3);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(calls.filter((c) => c.key === "GET /api/me").length).toBe(checks);
+  });
+
+  it("shows the table when tables are published mid-edit", async () => {
+    storage.setItem(ATTENDEE_TOKEN_KEY, "saved-token");
+    let published = false;
+    route("GET", "/api/me", () =>
+      json(published ? status({ assignment }, "published") : status()),
+    );
+    route("PUT", "/api/me", () => {
+      published = true;
+      return json({ detail: "Groups are already assigned." }, 409);
+    });
+    await mount();
+    await screen.findByRole("heading", { name: /is on its way/ });
+    fireEvent.click(document.getElementById("ta-wait-edit")!);
+    click(/Next: your interests/);
+    click(/Next: your goals/);
+    click(/Save my changes/);
+    expect(
+      await screen.findByRole("heading", { name: /Found for you/ }),
+    ).toBeTruthy();
+  });
+
+  it("forgets a token the server no longer knows", async () => {
+    storage.setItem(ATTENDEE_TOKEN_KEY, "stale-token");
+    route("GET", "/api/me", () => json({ detail: "Unknown" }, 401));
+    await mount();
+    expect(
+      await screen.findByText(/couldn't find your enrollment on this device/),
+    ).toBeTruthy();
+    expect(storage.getItem(ATTENDEE_TOKEN_KEY)).toBeNull();
+  });
+
+  it("explains when sign-ups are already closed", async () => {
+    route("GET", "/api/conference", () =>
+      json({ ...conference, status: "closed" }),
+    );
+    await mount();
+    expect(
+      screen.getByText(/Sign-ups for this lunch have closed/),
+    ).toBeTruthy();
+    expect(
+      (
+        screen.getByRole("button", {
+          name: /Next: your interests/,
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
   });
 });

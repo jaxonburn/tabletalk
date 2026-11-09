@@ -24,6 +24,10 @@ def api(monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[TestClient, main.Serv
     monkeypatch.setattr(main, "read_event", AsyncMock(return_value=EventConfig()))
     monkeypatch.setattr(main, "read_auto_state", AsyncMock(return_value=None))
     monkeypatch.setattr(main, "save_token", AsyncMock())
+    monkeypatch.setattr(main, "read_check_in", AsyncMock(return_value=None))
+    monkeypatch.setattr(main, "list_check_ins", AsyncMock(return_value={}))
+    monkeypatch.setattr(main, "save_check_in", AsyncMock())
+    monkeypatch.setattr(main, "update_attendee", AsyncMock())
     monkeypatch.delenv("HOST_TOKEN", raising=False)
     for name in (
         "LLM_PROVIDER",

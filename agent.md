@@ -17,14 +17,18 @@ integrations; Dash0 is the observability destination.
 - `apps/web`: React, TypeScript, Vite. Same-origin `/api` requests are proxied to
   the conference API by Vite in development. The browser never accesses
   Elasticsearch or the matching service directly. `src/main.tsx` picks the page
-  from the path: `/host` loads the host view (`HostApp.tsx`), `/user-onboarding`
-  loads the attendee onboarding prototype in `src/onboarding/`, and everything else
-  loads the main app. Each page is a separate chunk with its own stylesheet.
+  from the path: `/host` loads the host view (`HostApp.tsx`), `/classic` loads the
+  original single-page app (`App.tsx`), and everything else (including
+  `/user-onboarding`) loads the attendee app in `src/onboarding/`. Each page is a
+  separate chunk with its own stylesheet.
 - `src/onboarding/`: the onboarding template's HTML and CSS, kept as close to the
-  original as possible, plus its script ported to TypeScript. It uses sample
-  goals and tables and sends nothing to the API. Its five demo goals differ from
-  the API's three goals in `seed.py`; align them before wiring it to
-  `POST /api/enrollments`.
+  original as possible, plus `onboarding.ts`, which drives the markup and talks to
+  the API: `GET /api/conference` for event details and goal copy, `POST
+  /api/enrollments` or `PUT /api/me` to save, `GET /api/me` to resume and to poll
+  the waiting room (every 15 s, plus "Check for my table now"), and `POST
+  /api/me/check-in`. Goal IDs are the API's goal values; element IDs use slugs
+  (`learn`, `share`, `connect`). Both attendee pages share the token in
+  `src/attendeeToken.ts`.
 - `services/api`: public FastAPI API. Owns enrollment, the cutoff, host event
   setup, fictional demo data, draft runs, and publishing. Calls the matching
   service over HTTPX. An in-process lock serializes mutations in the single API
@@ -134,8 +138,9 @@ if you rename these contracts.
 - `GET /health`: dependency readiness; excluded from HTTP tracing.
 - `GET /api/health`: public readiness alias reporting API/matcher release versions
   for CI's hosted deployment verification.
-- `GET /api/conference`: attendees, the published plan, `status`
-  (`open | closed | published`), cutoff, and capacity.
+- `GET /api/conference`: aggregate only (attendee count, `published`), `status`
+  (`open | closed | published`), cutoff, capacity, `lunch_time`, `location`, and
+  goal prompts (`label`, `short`, `question`, `example_hint`) for the onboarding.
 - `POST /api/enrollments`: validated enrollment; rejected after the cutoff, after
   publishing, or when the host's tables are full.
   - The new onboarding sends `goals`, `focus_goal`, and one `goal_answers` entry
@@ -145,12 +150,22 @@ if you rename these contracts.
     `sha256(token)` → attendee ID is stored, in `tabletalk-tokens-v1`.
 - `GET /api/me` (`X-Attendee-Token`): your enrollment, `status`, and, once
   published, your table.
-  - Tablemates are shown as first name, role, and interests only.
-  - Also includes your note, starters, and the table summary.
+  - Tablemates are shown as first name, role, company, and interests only.
+  - Also includes your note, starters, the table summary, the table's name,
+    two-line tagline, topics, seat count, lunch time, location, and
+    `checked_in_at`.
   - Learn questions may appear in table starters; other answers never do.
+- `PUT /api/me` (`X-Attendee-Token`): replace your answers while sign-ups are open
+  (409 after). Keeps your ID and token; replacing the document drops stale
+  vectors and tags, so the next run re-enriches you.
+- `POST /api/me/check-in` (`X-Attendee-Token`): "I'm seated", only once your table
+  is published. Stored once per attendee in `tabletalk-events-v1`
+  (`kind: checkin`); repeating it keeps the first time. The host state lists
+  `check_ins`.
 - Host endpoints (`X-Host-Token` required only when `HOST_TOKEN` is set):
   - `GET /api/host/state`: event setup, status, attendees, run summaries.
-  - `PUT /api/host/event`: numbered tables, seats, cutoff, minimum table size.
+  - `PUT /api/host/event`: numbered tables, seats, cutoff, minimum table size,
+    and the `lunch_time` / `location` shown to attendees.
     Locked after publishing; can't shrink below current enrollment.
   - `POST /api/host/demo/attendees` (`{"source": "fixture" | "seed"}`) and
     `POST /api/demo/seed`: add missing fictional profiles; safe to repeat.

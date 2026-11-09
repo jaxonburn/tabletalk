@@ -7,13 +7,10 @@ const App = lazy(() => import("./App"));
 const HostApp = lazy(() => import("./HostApp"));
 const UserOnboarding = lazy(() => import("./onboarding/UserOnboarding"));
 
+// The onboarding flow is the attendee app; /classic keeps the original single page.
 const path = window.location.pathname.replace(/\/+$/, "");
 const Page =
-  path === "/host"
-    ? HostApp
-    : path === "/user-onboarding"
-      ? UserOnboarding
-      : App;
+  path === "/host" ? HostApp : path === "/classic" ? App : UserOnboarding;
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
