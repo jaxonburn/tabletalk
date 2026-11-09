@@ -1,6 +1,7 @@
 /**
- * Behavior for the event organizer page (/event-organizer), ported from the
- * TableTalk organizer prototype (tabletalk-admin-prototype-4.html).
+ * Behavior for the organizer console (/host, also /organizer-workflow and
+ * /event-organizer), ported from the TableTalk organizer prototype
+ * (tabletalk-admin-prototype-4.html) and wired to the host API.
  *
  * One workspace with five views: Overview, Tables, Signup QR, Matching, and
  * Updates, plus an event form for "Create event" and "Edit event". Tables owns
@@ -9,12 +10,26 @@
  * edits are kept per event, matching only uses saved settings, published
  * layouts are locked, and an unpublished seating draft can be discarded.
  *
- * Everything runs in the browser with sample data. Schedules, matching jobs,
- * publishing, and notifications are simulated in memory, nothing is sent to
- * the conference API, and reloading the page resets the demo. To connect it:
- * replace buildSeatingPlan with the matching service, signupUrl with the
- * hosted signup page, and the simulated sends with real handlers.
+ * It runs one event: the server's EventConfig. Saving tables or event details
+ * calls PUT /api/host/event (times are entered in the event's time zone and
+ * stored in UTC), matching creates a draft run with POST /api/host/runs,
+ * publishing calls POST /api/host/runs/{id}/publish, discarding a draft calls
+ * DELETE /api/host/runs, and updates go to attendees' in-app inbox through
+ * POST /api/host/announcements. The detailed review stays at /host/review.
  */
+
+import {
+  ApiError,
+  request,
+  type DemoResult,
+  type EventConfig,
+  type HostState,
+  type MatchRun,
+} from "../api";
+
+export const HOST_TOKEN_KEY = "tabletalk-host-token";
+/** How often the console re-reads the server, e.g. after a cutoff run. */
+export const REFRESH_MS = 20_000;
 
 type View = "overview" | "setup" | "tables" | "signup" | "matching" | "updates";
 
@@ -40,9 +55,10 @@ export interface PlanTable {
   number: string;
   seats: number;
   people: string[];
+  name: string;
 }
 
-type Audience = "all" | "matched" | "incomplete";
+type Audience = "all" | "matched";
 type Delivery = "now" | "schedule";
 
 interface UpdateDraft {
@@ -103,17 +119,10 @@ interface RoomRow {
   row: HTMLDivElement;
 }
 
-type SeatingResult = { plan: PlanTable[] } | { error: string };
-
 interface OrganizerHook {
   qrMatrix: (text: string) => boolean[][];
   qrSvg: (text: string) => string;
   printableSign: () => string;
-  buildSeatingPlan: (
-    layout: TableSlot[],
-    count: number,
-    minimum: number,
-  ) => SeatingResult;
   getEvents: () => OrganizerEvent[];
   getActive: () => OrganizerEvent;
   getRoomDraft: () => RoomDraft;
@@ -121,44 +130,10 @@ interface OrganizerHook {
 
 declare global {
   interface Window {
-    /** Development hook for checking the prototype, not an API. */
+    /** Development hook for checking the console, not an API. */
     tabletalkAdminDemo?: Readonly<OrganizerHook>;
   }
 }
-
-// Sample attendee names for the demo seating plan.
-const NAMES = [
-  "Maya K.",
-  "Jordan L.",
-  "Ari P.",
-  "Sam N.",
-  "Nina P.",
-  "Chris L.",
-  "Alex T.",
-  "Drew W.",
-  "Leo C.",
-  "Jess S.",
-  "Kai N.",
-  "Robin H.",
-  "Morgan B.",
-  "Riley A.",
-  "Casey D.",
-  "Taylor K.",
-  "Jamie M.",
-  "Skyler P.",
-  "Devon S.",
-  "Cameron R.",
-  "Quinn V.",
-  "Reese J.",
-  "Parker F.",
-  "Rowan E.",
-  "Sage T.",
-  "Finley W.",
-  "Avery G.",
-  "Blair O.",
-  "Remy C.",
-  "Harper Y.",
-];
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
@@ -198,72 +173,62 @@ const escapeHtml = (text: string) =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 
-/**
- * Demo seat allocation only. A production matching service can replace this
- * while keeping the saved table numbers, individual capacities, and minimum.
- */
-export function buildSeatingPlan(
-  layout: TableSlot[],
-  count: number,
-  minimum: number,
-): SeatingResult {
-  if (!Number.isInteger(count) || count < minimum) {
-    return { error: `At least ${minimum} completed profiles are needed.` };
-  }
-  if (
-    !layout.length ||
-    layout.some((t) => !Number.isInteger(t.seats) || t.seats < minimum)
-  ) {
-    return { error: "Every configured table must fit the minimum group size." };
-  }
-  const total = layout.reduce((sum, t) => sum + t.seats, 0);
-  if (total < count) {
-    return {
-      error: `There are ${count} ready attendees but only ${total} seats. Add seats in Tables before matching.`,
-    };
-  }
-  const groupCount = Math.min(layout.length, Math.floor(count / minimum));
-  // Fill the biggest tables first, then list them in the room's order.
-  const chosen = layout
-    .map((t, index) => ({ ...t, index }))
-    .sort((a, b) => b.seats - a.seats || a.index - b.index)
-    .slice(0, groupCount)
-    .sort((a, b) => a.index - b.index);
-  if (chosen.reduce((sum, t) => sum + t.seats, 0) < count) {
-    return {
-      error: `This layout cannot fit ${count} people in groups of at least ${minimum}. Add seats, lower the minimum, or wait for more attendees.`,
-    };
-  }
-  // Seat the minimum everywhere, then add people to the emptiest table.
-  const sizes = chosen.map(() => minimum);
-  let remaining = count - groupCount * minimum;
-  while (remaining > 0) {
-    let best = -1;
-    for (let i = 0; i < chosen.length; i++) {
-      if (sizes[i] < chosen[i].seats && (best < 0 || sizes[i] < sizes[best])) {
-        best = i;
-      }
-    }
-    if (best < 0)
-      return { error: "The seating plan would exceed table capacity." };
-    sizes[best]++;
-    remaining--;
-  }
-  let person = 0;
-  return {
-    plan: chosen.map((t, i) => ({
-      number: String(t.number).padStart(2, "0"),
-      seats: t.seats,
-      people: Array.from({ length: sizes[i] }, () => {
-        const index = person++;
-        const round = Math.floor(index / NAMES.length);
-        return NAMES[index % NAMES.length] + (round ? ` ${round + 1}` : "");
-      }),
-    })),
-  };
+/** Milliseconds `zone` is ahead of UTC at the instant `ms`. */
+function zoneOffset(ms: number, zone: string) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: zone,
+      hourCycle: "h23",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    })
+      .formatToParts(new Date(ms))
+      .map((p) => [p.type, p.value]),
+  );
+  const asUtc = Date.UTC(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    Number(parts.hour) % 24,
+    Number(parts.minute),
+    Number(parts.second),
+  );
+  return asUtc - Math.floor(ms / 1000) * 1000;
+}
+
+/** "YYYY-MM-DDTHH:MM" in `zone` to an ISO UTC timestamp. */
+export function localToUtc(local: string, zone: string): string {
+  const guess = Date.parse(`${local}:00Z`);
+  let utc = guess - zoneOffset(guess, zone);
+  // Correct once more around daylight-saving changes.
+  utc = guess - zoneOffset(utc, zone);
+  return new Date(utc).toISOString();
+}
+
+/** An ISO timestamp to "YYYY-MM-DDTHH:MM" in `zone`. */
+export function utcToLocal(iso: string, zone: string): string {
+  const ms = Date.parse(iso);
+  return new Date(ms + zoneOffset(ms, zone)).toISOString().slice(0, 16);
+}
+
+/** Lunch hours as attendees see them, e.g. "12:30 PM–1:15 PM". */
+function lunchLabel(start: string, end: string) {
+  return `${timeLabel(start)}–${timeLabel(end)}`;
+}
+
+function sameLayout(run: MatchRun, event: EventConfig) {
+  return (
+    run.min_table_size === event.min_table_size &&
+    JSON.stringify(run.tables) === JSON.stringify(event.tables)
+  );
 }
 
 /**
+ * A real QR encoder/**
  * A real QR encoder for short UTF-8 event links: QR version 4, error
  * correction L, one Reed–Solomon block (80 data + 20 correction codewords),
  * mask 0. Returns the 33×33 modules, true for dark.
@@ -509,49 +474,181 @@ export function initOrganizer(root: HTMLElement): () => void {
     return e;
   }
 
-  // Sample data
+  // Server state
 
-  const events: OrganizerEvent[] = [
-    {
-      id: "evt-summit",
-      name: "Utah Builders Summit",
-      date: "2026-11-20",
-      zone: "America/Denver",
-      location: "Main hall",
-      start: "12:30",
-      end: "13:15",
-      layout: uniformLayout(6, 6),
-      cutoff: "2026-11-20T12:15",
-      minSize: 2,
-      autoMatch: true,
-      autoPublish: false,
-      roomConfigured: true,
-      registered: 34,
-      ready: 30,
-      schedule: "2026-11-20T12:15",
-      plan: null,
-      published: false,
-      enrollmentClosed: false,
-      messages: [],
-    },
-  ];
-  let activeId = events[0].id;
-  let eventCounter = 1;
+  let host: HostState | null = null;
+  /** The published run, or the newest draft made for the saved layout. */
+  let draft: MatchRun | null = null;
+  const runs = new Map<string, MatchRun>();
+  let running = false;
+  let busy = false;
+  let loads = 0;
+  let token = sessionStorage.getItem(HOST_TOKEN_KEY) ?? "";
   let currentView: View = "overview";
   let editing = false;
   let messageDraft: UpdateDraft | null = null;
   const roomDrafts = new Map<string, RoomDraft>();
   let roomRows: RoomRow[] = [];
 
-  function event(): OrganizerEvent {
-    const found = events.find((e) => e.id === activeId);
-    if (!found) throw new Error(`Unknown event ${activeId}.`);
-    return found;
+  function api<T>(
+    path: string,
+    body?: unknown,
+    method?: "GET" | "POST" | "PUT" | "DELETE",
+  ): Promise<T> {
+    return request<T>(path, body, {
+      method,
+      hostToken: token,
+      invalidMessage: "Please check these settings and try again.",
+    });
   }
 
-  /** Replace with the hosted signup page. This demo uses a reserved domain. */
+  async function run(path: string): Promise<MatchRun> {
+    const cached = runs.get(path);
+    if (cached) return cached;
+    const fetched = await api<MatchRun>(path);
+    runs.set(path, fetched);
+    return fetched;
+  }
+
+  async function load() {
+    // Only the newest read wins, so a slow background refresh can't undo a save.
+    const mine = ++loads;
+    const state = await api<HostState>("/api/host/state");
+    const id = state.published_run_id ?? state.runs[0]?.id;
+    let current: MatchRun | null = null;
+    if (id) {
+      try {
+        const found = await run(`/api/host/runs/${id}`);
+        if (state.published_run_id || sameLayout(found, state.event)) {
+          current = found;
+        }
+      } catch (error) {
+        if (!(error instanceof ApiError && error.status === 404)) throw error;
+      }
+    }
+    if (signal.aborted || mine !== loads) return;
+    host = state;
+    draft = current;
+  }
+
+  function tablesFrom(r: MatchRun): PlanTable[] {
+    const seats = new Map(r.tables.map((t) => [t.number, t.seats]));
+    return r.plan.groups.map((group) => ({
+      number: String(group.table_number ?? "").padStart(2, "0"),
+      seats: seats.get(group.table_number ?? -1) ?? group.members.length,
+      people: group.members.map((m) => m.name),
+      name: group.name ?? "",
+    }));
+  }
+
+  function localToday(zone: string) {
+    return utcToLocal(new Date().toISOString(), zone).slice(0, 10);
+  }
+
+  /** The console's view of the server's single event. */
+  function event(): OrganizerEvent {
+    const ev = host?.event;
+    const zone = ev?.timezone ?? "America/Denver";
+    // Without a saved date, the saved cutoff's day is the best guess.
+    const date =
+      ev?.date ??
+      (ev?.enrollment_closes_at
+        ? utcToLocal(ev.enrollment_closes_at, zone).slice(0, 10)
+        : localToday(zone));
+    const start = ev?.lunch_start ?? "12:30";
+    const registered = host?.attendees.length ?? 0;
+    const plan = draft ? tablesFrom(draft) : null;
+    const roomConfigured = Boolean(ev?.enrollment_closes_at);
+    const cutoff = ev?.enrollment_closes_at
+      ? utcToLocal(ev.enrollment_closes_at, zone)
+      : defaultCutoff(date, start);
+    const autoMatch = ev?.auto_match ?? false;
+    const now = Date.now();
+    return {
+      id: "event",
+      name: ev?.name ?? "Your event",
+      date,
+      zone,
+      location: ev?.location ?? "",
+      start,
+      end: ev?.lunch_end ?? "13:15",
+      layout: ev?.tables ?? [],
+      cutoff,
+      minSize: ev?.min_table_size ?? 2,
+      autoMatch,
+      autoPublish: ev?.auto_publish ?? false,
+      roomConfigured,
+      registered,
+      ready: registered,
+      schedule:
+        roomConfigured && autoMatch && !plan && !running ? cutoff : null,
+      plan,
+      published: host?.status === "published",
+      enrollmentClosed: host ? host.status !== "open" : false,
+      running,
+      messages: (host?.announcements ?? []).map((a) => ({
+        eventId: "event",
+        title: a.title,
+        body: a.body,
+        audience: a.audience,
+        count: a.recipients,
+        when: a.send_at ? "schedule" : "now",
+        time: a.send_at ? utcToLocal(a.send_at, zone) : "",
+        status:
+          a.send_at && Date.parse(a.send_at) > now
+            ? "Scheduled for the inbox"
+            : "Delivered to the inbox",
+      })),
+    };
+  }
+
+  /** The attendee app, where the QR code and signup link point. */
   function signupUrl() {
-    return `https://tabletalk.example/e/${event().id}`;
+    return `${window.location.origin}/`;
+  }
+
+  function askForToken() {
+    q("token-form").hidden = false;
+    q("toast").hidden = true;
+    input("host-token").focus();
+  }
+
+  /** Run a server action, then re-read the server and re-render. */
+  async function act(
+    action: () => Promise<string | void>,
+    { reload = true } = {},
+  ) {
+    if (busy) {
+      toast("Still saving your last change. Try again in a moment.");
+      return;
+    }
+    busy = true;
+    try {
+      const message = await action();
+      if (reload) await load();
+      if (signal.aborted) return;
+      refresh();
+      if (message) toast(message);
+    } catch (error) {
+      if (signal.aborted) return;
+      if (error instanceof ApiError && error.status === 401) {
+        askForToken();
+      } else {
+        refresh();
+        toast(
+          error instanceof Error
+            ? error.message
+            : "Something went wrong. Please try again.",
+        );
+      }
+    } finally {
+      busy = false;
+    }
+  }
+
+  function eventConfig(changes: Partial<EventConfig>): EventConfig {
+    if (!host) throw new Error("The event hasn't loaded yet.");
+    return { ...host.event, ...changes };
   }
 
   function toast(text: string) {
@@ -562,6 +659,19 @@ export function initOrganizer(root: HTMLElement): () => void {
   function fieldError(id: string, message: string) {
     q(id).textContent = message;
     q(id).hidden = !message;
+  }
+
+  function updateBreadcrumb() {
+    const view = currentView;
+    const place =
+      view === "setup"
+        ? editing
+          ? "EDIT EVENT"
+          : "NEW EVENT"
+        : view === "signup"
+          ? "SIGNUP & QR"
+          : view.toUpperCase();
+    q("breadcrumb").textContent = `${event().name.toUpperCase()} / ${place}`;
   }
 
   function show(view: View, { focus = true } = {}) {
@@ -578,15 +688,7 @@ export function initOrganizer(root: HTMLElement): () => void {
         b.removeAttribute("aria-current");
       }
     });
-    const place =
-      view === "setup"
-        ? editing
-          ? "EDIT EVENT"
-          : "NEW EVENT"
-        : view === "signup"
-          ? "SIGNUP & QR"
-          : view.toUpperCase();
-    q("breadcrumb").textContent = `${event().name.toUpperCase()} / ${place}`;
+    updateBreadcrumb();
     animate(
       q(view),
       [
@@ -616,10 +718,11 @@ export function initOrganizer(root: HTMLElement): () => void {
   }
 
   function refreshEventSelect() {
+    const e = event();
     select("event-select").replaceChildren(
-      ...events.map((e) => el("option", { value: e.id }, e.name)),
+      el("option", { value: e.id }, e.name),
     );
-    select("event-select").value = activeId;
+    select("event-select").disabled = true;
   }
 
   function matchedCount() {
@@ -628,13 +731,11 @@ export function initOrganizer(root: HTMLElement): () => void {
   }
 
   function recipients() {
-    const e = event();
-    const audience = select("audience").value;
-    return audience === "matched"
-      ? matchedCount()
-      : audience === "incomplete"
-        ? e.registered - e.ready
-        : e.registered;
+    return select("audience").value === "matched"
+      ? event().published
+        ? matchedCount()
+        : 0
+      : event().registered;
   }
 
   function capacity(e = event()) {
@@ -675,13 +776,6 @@ export function initOrganizer(root: HTMLElement): () => void {
 
   function roomLocked(e = event()) {
     return Boolean(e.plan) || Boolean(e.running);
-  }
-
-  function syncSchedule(e: OrganizerEvent) {
-    e.schedule =
-      e.roomConfigured && e.autoMatch && !e.plan && !e.running
-        ? e.cutoff
-        : null;
   }
 
   function roomCanEdit() {
@@ -935,9 +1029,9 @@ export function initOrganizer(root: HTMLElement): () => void {
     const minimum = Number(d.minSize);
     if (
       !message &&
-      (!Number.isInteger(minimum) || minimum < 2 || minimum > 12)
+      (!Number.isInteger(minimum) || minimum < 2 || minimum > 6)
     ) {
-      message = "The smallest table must have 2–12 people.";
+      message = "The smallest table must have 2–6 people.";
       invalid = q("minimum-size");
     }
     if (!message && d.layout.some((t) => Number(t.seats) < minimum)) {
@@ -953,6 +1047,15 @@ export function initOrganizer(root: HTMLElement): () => void {
       message = "Choose an enrollment cutoff before lunch starts.";
       invalid = q("cutoff");
     }
+    if (
+      !message &&
+      d.cutoff !== roomSnapshot(e).cutoff &&
+      Date.parse(localToUtc(d.cutoff, e.zone)) <= Date.now()
+    ) {
+      // A past cutoff would close sign-ups (and maybe match) the moment it saves.
+      message = "Choose an enrollment cutoff that hasn’t passed yet.";
+      invalid = q("cutoff");
+    }
     if (message) {
       fieldError("room-error", message);
       if (invalid) {
@@ -963,28 +1066,28 @@ export function initOrganizer(root: HTMLElement): () => void {
       return;
     }
 
-    e.layout = d.layout.map((t) => ({
-      number: Number(t.number),
-      seats: Number(t.seats),
-    }));
-    e.cutoff = d.cutoff;
-    e.minSize = minimum;
-    e.autoMatch = d.autoMatch;
-    e.autoPublish = d.autoPublish;
-    e.roomConfigured = true;
-    syncSchedule(e);
-    roomDrafts.set(e.id, roomSnapshot(e));
     fieldError("room-error", "");
-    refresh();
-    toast(
-      `Room setup saved in this demo. ${
-        !e.autoMatch
+    const saved = {
+      tables: d.layout.map((t) => ({
+        number: Number(t.number),
+        seats: Number(t.seats),
+      })),
+      enrollment_closes_at: localToUtc(d.cutoff, e.zone),
+      min_table_size: minimum,
+      auto_match: d.autoMatch,
+      auto_publish: d.autoMatch && d.autoPublish,
+    };
+    void act(async () => {
+      await api<EventConfig>("/api/host/event", eventConfig(saved), "PUT");
+      roomDrafts.delete(e.id);
+      return `Room setup saved. ${
+        !saved.auto_match
           ? "Run matching manually when you’re ready."
-          : e.autoPublish
+          : saved.auto_publish
             ? "The cutoff run will publish assignments automatically."
             : "The cutoff run will create a draft for review."
-      }`,
-    );
+      }`;
+    });
   });
 
   on(q("manage-tables"), "click", () => show("tables"));
@@ -996,13 +1099,16 @@ export function initOrganizer(root: HTMLElement): () => void {
   on(q("discard-plan"), "click", () => {
     const e = event();
     if (!e.plan || e.published || e.running) return;
-    e.plan = null;
-    syncSchedule(e);
-    refresh();
-    show("tables");
-    toast(
-      "Draft seating plan discarded in the demo. Your attendee profiles and table settings are still here.",
-    );
+    void act(async () => {
+      const { deleted } = await api<{ deleted: number }>(
+        "/api/host/runs",
+        undefined,
+        "DELETE",
+      );
+      runs.clear();
+      show("tables");
+      return `Discarded ${deleted} draft seating plan${deleted === 1 ? "" : "s"}. Attendee profiles and table settings are unchanged.`;
+    });
   });
 
   // Matching settings
@@ -1063,7 +1169,8 @@ export function initOrganizer(root: HTMLElement): () => void {
   function refresh() {
     const e = event();
     const total = capacity(e);
-    syncSchedule(e);
+    refreshEventSelect();
+    updateBreadcrumb();
     q("top-status").textContent = e.published
       ? "Tables published"
       : e.enrollmentClosed
@@ -1145,7 +1252,11 @@ export function initOrganizer(root: HTMLElement): () => void {
     q("save-event").textContent = edit ? "Save changes →" : "Create event →";
     input("event-name").value = edit ? e.name : "";
     input("event-date").value = edit ? e.date : "2026-11-20";
-    select("event-zone").value = edit ? e.zone : "America/Denver";
+    const zones = select("event-zone");
+    if (![...zones.options].some((o) => o.value === e.zone)) {
+      zones.append(el("option", { value: e.zone }, e.zone));
+    }
+    zones.value = edit ? e.zone : "America/Denver";
     input("event-location").value = edit ? e.location : "";
     input("lunch-start").value = edit ? e.start : "12:30";
     input("lunch-end").value = edit ? e.end : "13:15";
@@ -1153,7 +1264,8 @@ export function initOrganizer(root: HTMLElement): () => void {
     show("setup");
   }
 
-  on(q("create"), "click", () => fillSetup(false));
+  // One event per deployment: "Create event" edits it instead.
+  on(q("create"), "click", () => fillSetup(true));
   on(q("edit-event"), "click", () => fillSetup(true));
   on(q("cancel-event"), "click", () => show("overview"));
   root.querySelectorAll<HTMLElement>("[data-view]").forEach((b) =>
@@ -1170,16 +1282,6 @@ export function initOrganizer(root: HTMLElement): () => void {
     }),
   );
   on(q("overview-qr"), "click", () => show("signup"));
-  on(q("event-select"), "change", () => {
-    activeId = select("event-select").value;
-    q("toast").hidden = true;
-    q("message-review").hidden = true;
-    select("template").value = "reminder";
-    fillTemplate();
-    refresh();
-    show("overview");
-  });
-
   on(q("event-form"), "submit", (ev) => {
     ev.preventDefault();
     const name = input("event-name").value.trim();
@@ -1209,81 +1311,88 @@ export function initOrganizer(root: HTMLElement): () => void {
       location,
       zone: select("event-zone").value,
     };
-    if (editing) {
-      // Move the cutoff with the event date, and keep it before lunch starts.
-      const e = event();
-      const days =
-        (Date.parse(`${date}T12:00:00Z`) - Date.parse(`${e.date}T12:00:00Z`)) /
-        86400000;
-      const shift = (value: string) => {
-        const stamp = Date.parse(`${value}Z`);
-        return Number.isFinite(stamp)
-          ? new Date(stamp + days * 86400000).toISOString().slice(0, 16)
-          : value;
-      };
-      e.cutoff = shift(e.cutoff);
-      if (e.cutoff >= `${date}T${start}`) e.cutoff = defaultCutoff(date, start);
-      const draft = roomDrafts.get(e.id);
-      if (draft) {
-        draft.cutoff = shift(draft.cutoff);
-        if (draft.cutoff >= `${date}T${start}`) {
-          draft.cutoff = defaultCutoff(date, start);
-        }
-      }
-      Object.assign(e, settings);
-      syncSchedule(e);
-    } else {
-      eventCounter += 1;
-      const next: OrganizerEvent = {
-        ...settings,
-        id: `evt-${eventCounter.toString(36)}`,
-        layout: uniformLayout(3, 5),
-        cutoff: defaultCutoff(date, start),
-        minSize: 2,
-        autoMatch: true,
-        autoPublish: false,
-        roomConfigured: false,
-        registered: 0,
-        ready: 0,
-        schedule: null,
-        plan: null,
-        published: false,
-        enrollmentClosed: false,
-        messages: [],
-      };
-      events.push(next);
-      activeId = next.id;
+    // Move the cutoff with the event date, and keep it before lunch starts.
+    const e = event();
+    const days =
+      (Date.parse(`${date}T12:00:00Z`) - Date.parse(`${e.date}T12:00:00Z`)) /
+      86400000;
+    const shift = (value: string) => {
+      const stamp = Date.parse(`${value}Z`);
+      return Number.isFinite(stamp)
+        ? new Date(stamp + days * 86400000).toISOString().slice(0, 16)
+        : value;
+    };
+    const moved =
+      date !== e.date || start !== e.start || settings.zone !== e.zone;
+    let cutoff = e.cutoff;
+    if (moved) {
+      cutoff = shift(e.cutoff);
+      if (cutoff >= `${date}T${start}`) cutoff = defaultCutoff(date, start);
     }
-    refreshEventSelect();
-    fillTemplate();
-    refresh();
-    show(editing ? "overview" : "tables");
-    toast(
-      editing
-        ? "Event details updated in the demo."
-        : "Event created. Set up your tables and enrollment cutoff, then share the signup QR.",
-    );
+    const previous = host?.event.enrollment_closes_at ?? null;
+    const closesAt = !e.roomConfigured
+      ? null
+      : moved
+        ? localToUtc(cutoff, settings.zone)
+        : previous;
+    if (
+      closesAt &&
+      (!previous || Date.parse(closesAt) !== Date.parse(previous)) &&
+      Date.parse(closesAt) <= Date.now()
+    ) {
+      // Saving would close sign-ups (and maybe match) immediately.
+      fieldError(
+        "event-error",
+        `This change would move the enrollment cutoff to ${scheduleLabel(cutoff)}, which has already passed. Pick a later date or update the cutoff in Tables first.`,
+      );
+      return;
+    }
+    const roomDraftNow = roomDrafts.get(e.id);
+    if (roomDraftNow && moved) {
+      roomDraftNow.cutoff = shift(roomDraftNow.cutoff);
+      if (roomDraftNow.cutoff >= `${date}T${start}`) {
+        roomDraftNow.cutoff = defaultCutoff(date, start);
+      }
+    }
+    const config = eventConfig({
+      name: settings.name,
+      date: settings.date,
+      timezone: settings.zone,
+      location: settings.location,
+      lunch_start: settings.start,
+      lunch_end: settings.end,
+      lunch_time: lunchLabel(settings.start, settings.end),
+      enrollment_closes_at: closesAt,
+    });
+    void act(async () => {
+      await api<EventConfig>("/api/host/event", config, "PUT");
+      fillTemplate();
+      show("overview");
+      return "Event details saved. Attendees see the new name, time, and place.";
+    });
   });
 
   on(q("load-samples"), "click", () => {
     const e = event();
-    if (!e.roomConfigured) {
-      toast("Save the Tables setup before adding demo attendees.");
+    if (e.enrollmentClosed) {
+      toast("Sign-ups are closed, so demo attendees can’t be added.");
       return;
     }
-    if (e.plan || e.running) {
-      toast(
-        "Matching is already in progress or a seating plan exists. Create another demo event to try a fresh flow.",
-      );
-      return;
-    }
-    e.registered = Math.min(34, capacity(e));
-    e.ready = Math.max(
-      0,
-      e.registered - Math.min(4, Math.floor(e.registered / 6)),
-    );
-    refresh();
-    toast("Added sample attendee profiles for this demo.");
+    const source = select("sample-source").value;
+    if (e.plan) runs.clear();
+    void act(async () => {
+      const result = await api<DemoResult>("/api/host/demo/attendees", {
+        source,
+        count: 24,
+      });
+      return result.created
+        ? `Added ${result.created} demo attendee${result.created === 1 ? "" : "s"}.${
+            e.plan
+              ? " Discard the draft and run matching again to seat them."
+              : ""
+          }`
+        : "Those demo attendees are already here.";
+    });
   });
 
   // Signup link, QR code, and printable sign
@@ -1292,7 +1401,7 @@ export function initOrganizer(root: HTMLElement): () => void {
     try {
       if (!navigator.clipboard) throw new Error("unavailable");
       await navigator.clipboard.writeText(signupUrl());
-      toast("Signup link copied. This is an example destination.");
+      toast("Signup link copied.");
     } catch {
       input("signup-url").focus();
       input("signup-url").select();
@@ -1319,7 +1428,7 @@ export function initOrganizer(root: HTMLElement): () => void {
       `<body><div class="poster"><div class="brand">TableTalk</div><div class="event">${escapeHtml(e.name)}</div>` +
       `<h1>Lunch with<br>your kind of people.</h1><div class="qr">${qrSvg(url)}</div>` +
       `<p><b>Scan to join the conversation.</b></p><p class="meta">${escapeHtml(details)}</p>` +
-      `<p class="url">${escapeHtml(url)}<br>DEMO SIGN · EXAMPLE DESTINATION</p>` +
+      `<p class="url">${escapeHtml(url)}</p>` +
       `<button class="print" onclick="window.print()">Print this sign</button></div></body></html>`
     );
   }
@@ -1330,9 +1439,7 @@ export function initOrganizer(root: HTMLElement): () => void {
       "image/svg+xml",
       `tabletalk-${event().id}-qr.svg`,
     );
-    toast(
-      "QR download requested. It encodes the example signup link shown above.",
-    );
+    toast("QR code downloaded. It opens the signup link shown above.");
   });
   on(q("print-sign"), "click", () => {
     download(
@@ -1340,9 +1447,7 @@ export function initOrganizer(root: HTMLElement): () => void {
       "text/html",
       `tabletalk-${event().id}-print-sign.html`,
     );
-    toast(
-      "Print-sign download requested. Open the HTML file, then choose Print. The demo QR points to an example destination.",
-    );
+    toast("Printable sign downloaded. Open the HTML file, then choose Print.");
   });
 
   // Matching: schedule or run now, review, publish
@@ -1371,38 +1476,30 @@ export function initOrganizer(root: HTMLElement): () => void {
       toast(block);
       return;
     }
-    const targetId = e.id;
-    e.running = true;
-    if (automatic) e.enrollmentClosed = true;
+    if (busy) {
+      toast("Still saving your last change. Try again in a moment.");
+      return;
+    }
+    running = true;
     refresh();
     q("seating-state").textContent = "FINDING THEIR PEOPLE…";
-    later(
-      () => {
-        const result = buildSeatingPlan(e.layout, e.ready, e.minSize);
-        e.running = false;
-        if ("error" in result) {
-          syncSchedule(e);
-          if (activeId === targetId) {
-            refresh();
-            toast(result.error);
-          }
-          return;
+    void act(async () => {
+      let published = false;
+      try {
+        const made = await api<MatchRun>("/api/host/runs", {});
+        runs.set(`/api/host/runs/${made.id}`, made);
+        if (automatic && e.autoPublish) {
+          await api(`/api/host/runs/${made.id}/publish`, {});
+          published = true;
         }
-        e.plan = result.plan;
-        e.published = automatic && e.autoPublish;
-        syncSchedule(e);
-        if (activeId === targetId) {
-          refresh();
-          toast(
-            e.published
-              ? "Automatic demo run published the table reveal. No notifications were sent."
-              : "Demo seating plan created. Review the tables before publishing.",
-          );
-          if (singleColumn()) scrollToStart(q("seating-state"));
-        }
-      },
-      reduced() ? 0 : 900,
-    );
+      } finally {
+        running = false;
+      }
+      if (singleColumn()) later(() => scrollToStart(q("seating-state")), 0);
+      return published
+        ? "Tables are matched and published. Attendees can see their tables now."
+        : "Seating plan created. Review the tables, then publish.";
+    });
   }
   on(q("run-now"), "click", () => runMatching());
   on(q("demo-schedule"), "click", () => runMatching({ automatic: true }));
@@ -1426,15 +1523,24 @@ export function initOrganizer(root: HTMLElement): () => void {
       const summary = el("summary", { class: "cursor-interaction" });
       summary.append(
         el("strong", {}, table.number),
-        el("span", {}, `${table.people.length} / ${table.seats} seats`),
+        el(
+          "span",
+          {},
+          `${table.name ? `${table.name} · ` : ""}${table.people.length} / ${table.seats} seats`,
+        ),
         el("small", {}, "View tablemates ↓"),
       );
       details.append(summary, el("p", {}, table.people.join(" · ")));
       q("plan-grid").append(details);
     }
     const unused = e.layout.length - e.plan.length;
+    const late = e.registered - matchedCount();
     q("plan-summary").textContent =
-      `${matchedCount()} attendees · ${e.plan.length} active tables${unused ? ` · ${unused} unused` : ""} · ${e.registered - e.ready} incomplete profiles excluded`;
+      `${matchedCount()} attendees · ${e.plan.length} active tables${unused ? ` · ${unused} unused` : ""}${
+        late > 0 && !e.published
+          ? ` · ${late} enrolled after this plan. Discard it in Tables and run again so they get a seat.`
+          : ""
+      }`;
     button("publish").disabled = e.published;
     q("publish").textContent = e.published
       ? "Table assignments published ✓"
@@ -1443,12 +1549,12 @@ export function initOrganizer(root: HTMLElement): () => void {
 
   on(q("publish"), "click", () => {
     const e = event();
-    if (!e.plan || e.published) return;
-    e.published = true;
-    refresh();
-    toast(
-      "Table reveal published in this demo. No notifications were sent. Use Updates to review an announcement.",
-    );
+    if (!e.plan || e.published || !draft) return;
+    const id = draft.id;
+    void act(async () => {
+      await api(`/api/host/runs/${id}/publish`, {});
+      return "Table assignments published. Attendees see their tables now; send an update to let them know.";
+    });
   });
 
   // Updates: compose, preview, review, and record
@@ -1530,7 +1636,7 @@ export function initOrganizer(root: HTMLElement): () => void {
     }
     fieldError("message-error", "");
     messageDraft = {
-      eventId: activeId,
+      eventId: "event",
       title,
       body,
       audience: select("audience").value as Audience,
@@ -1553,16 +1659,22 @@ export function initOrganizer(root: HTMLElement): () => void {
   });
 
   on(q("review-send"), "click", () => {
-    if (!messageDraft || messageDraft.eventId !== activeId) return;
-    event().messages.unshift({
-      ...messageDraft,
-      status: messageDraft.when === "now" ? "Simulated send" : "Demo schedule",
+    if (!messageDraft) return;
+    const sent = messageDraft;
+    const zone = event().zone;
+    void act(async () => {
+      await api("/api/host/announcements", {
+        title: sent.title,
+        body: sent.body,
+        audience: sent.audience,
+        send_at: sent.when === "schedule" ? localToUtc(sent.time, zone) : null,
+      });
+      q("message-review").hidden = true;
+      messageDraft = null;
+      return sent.when === "now"
+        ? `Update sent to ${sent.count} attendee inbox${sent.count === 1 ? "" : "es"}.`
+        : `Update scheduled for ${scheduleLabel(sent.time)}.`;
     });
-    q("message-review").hidden = true;
-    messageDraft = null;
-    renderHistory();
-    refresh();
-    toast("Demo update recorded. No real notification was sent or scheduled.");
   });
 
   function renderHistory() {
@@ -1588,20 +1700,46 @@ export function initOrganizer(root: HTMLElement): () => void {
     qrMatrix,
     qrSvg,
     printableSign,
-    buildSeatingPlan,
-    getEvents: () => clone(events),
+    getEvents: () => [clone(event())],
     getActive: () => clone(event()),
     getRoomDraft: () => clone(roomDraft()),
   });
   window.tabletalkAdminDemo = hook;
 
-  refreshEventSelect();
-  fillTemplate();
+  on(q("token-form"), "submit", (ev) => {
+    ev.preventDefault();
+    token = input("host-token").value.trim();
+    sessionStorage.setItem(HOST_TOKEN_KEY, token);
+    q("token-form").hidden = true;
+    void act(async () => "Unlocked.");
+  });
+
   refresh();
   setMode("schedule");
   show("overview", { focus: false });
+  q("seating-state").textContent = "LOADING…";
+  void act(
+    async () => {
+      await load();
+      fillTemplate();
+    },
+    { reload: false },
+  );
+
+  // Pick up changes made elsewhere: new sign-ups, or the cutoff run.
+  const poll = window.setInterval(() => {
+    const typing = currentView === "tables" || currentView === "setup";
+    if (busy || running || typing || document.hidden || !host) return;
+    // A background read never blocks the organizer's own actions.
+    load()
+      .then(() => {
+        if (!busy && !signal.aborted) refresh();
+      })
+      .catch(() => undefined);
+  }, REFRESH_MS);
 
   return () => {
+    window.clearInterval(poll);
     controller.abort();
     timers.forEach((id) => window.clearTimeout(id));
     timers.clear();

@@ -1075,7 +1075,8 @@ export default function HostApp() {
       </main>
       <footer>
         <span>Host tools for TableTalk.</span>
-        <a href="/">Back to the attendee view</a>
+        <a href="/host">Organizer console</a>
+        <a href="/">Attendee view</a>
       </footer>
     </div>
   );

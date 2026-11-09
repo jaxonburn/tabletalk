@@ -9,15 +9,16 @@ const UserOnboarding = lazy(() => import("./onboarding/UserOnboarding"));
 const EventOrganizer = lazy(() => import("./organizer/EventOrganizer"));
 
 // The onboarding flow is the attendee app; /classic keeps the original single page.
+// The organizer console is the host app; /host/review keeps the detailed review.
+const ORGANIZER = new Set(["/host", "/organizer-workflow", "/event-organizer"]);
 const path = window.location.pathname.replace(/\/+$/, "");
-const Page =
-  path === "/host"
+const Page = ORGANIZER.has(path)
+  ? EventOrganizer
+  : path === "/host/review"
     ? HostApp
     : path === "/classic"
       ? App
-      : path === "/organizer-workflow" || path === "/event-organizer"
-        ? EventOrganizer
-        : UserOnboarding;
+      : UserOnboarding;
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

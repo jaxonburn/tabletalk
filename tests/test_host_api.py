@@ -1,8 +1,10 @@
+import asyncio
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, Mock
 
 import httpx
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from tabletalk_api import main
 from tabletalk_api.observability import DashboardMetrics
@@ -10,7 +12,7 @@ from tabletalk_api.seed import seed_attendees
 from tabletalk_matcher.affinity import Affinity, lexical_directed_scores
 from tabletalk_matcher.matching import build_plan
 from tabletalk_shared.fixtures import load_fixture
-from tabletalk_shared.models import Attendee, EventConfig, MatchRun, TableSpec
+from tabletalk_shared.models import Announcement, Attendee, EventConfig, MatchRun, TableSpec
 
 Api = tuple[TestClient, main.Services]
 
@@ -272,6 +274,19 @@ class TestRuns:
         monkeypatch.setattr(main, "save_plan", AsyncMock(side_effect=lambda _c, plan: plan))
         assert client.post("/api/host/runs/run-1/publish").status_code == 200
 
+    def test_a_discarded_run_cannot_be_published(
+        self, api: Api, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _, services = api
+        monkeypatch.setattr(main, "read_run", AsyncMock(return_value=None))
+        monkeypatch.setattr(main, "list_attendees", AsyncMock(return_value=people(4)))
+        save = AsyncMock()
+        monkeypatch.setattr(main, "save_plan", save)
+        with pytest.raises(HTTPException) as error:
+            asyncio.run(main.publish(services, make_run(people(4))))
+        assert error.value.status_code == 409 and "discarded" in error.value.detail
+        save.assert_not_awaited()
+
     def test_publish_saves_the_run_plan(self, api: Api, monkeypatch: pytest.MonkeyPatch) -> None:
         client, _ = api
         run = make_run(people(4))
@@ -325,3 +340,74 @@ class TestRuns:
         assert response.json() == {"created": 14, "generator": "fixture"}
         assert isinstance(services.elasticsearch.create, AsyncMock)
         assert services.elasticsearch.create.await_count == 14
+
+
+class TestOrganizerConsole:
+    def test_event_details_are_saved_and_shown_to_attendees(
+        self, api: Api, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        client, _ = api
+        details = {
+            "name": "KubeCon Lunch",
+            "date": "2026-11-20",
+            "timezone": "America/New_York",
+            "lunch_start": "12:00",
+            "lunch_end": "13:00",
+        }
+        event = EventConfig.model_validate(details)
+        monkeypatch.setattr(main, "read_event", AsyncMock(return_value=event))
+        assert client.get("/api/conference").json()["name"] == "KubeCon Lunch"
+
+    @pytest.mark.parametrize(
+        "changes",
+        [
+            {"timezone": "Mars/Olympus"},
+            {"lunch_start": "13:00", "lunch_end": "12:00"},
+            {"date": "Nov 20"},
+        ],
+    )
+    def test_invalid_event_details_are_rejected(self, changes: dict[str, str]) -> None:
+        with pytest.raises(ValueError):
+            EventConfig.model_validate(changes)
+
+    def test_discarding_drafts_keeps_the_published_run(
+        self, api: Api, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        client, _ = api
+        plan = make_run(people(4)).plan
+        monkeypatch.setattr(main, "read_plan", AsyncMock(return_value=plan))
+        response = client.delete("/api/host/runs")
+        assert response.json() == {"deleted": 2}
+        delete = getattr(main, "delete_draft_runs")  # noqa: B009 - patched by the api fixture
+        assert delete.await_args.args[1] == "run-1"
+
+    def test_announcements_are_saved_with_their_audience_size(
+        self, api: Api, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        client, _ = api
+        monkeypatch.setattr(main, "list_attendees", AsyncMock(return_value=people(5)))
+        body = {"title": "Lunch soon", "body": "See you in Hall B."}
+        response = client.post("/api/host/announcements", json=body)
+        assert response.status_code == 201
+        assert response.json()["recipients"] == 5 and response.json()["send_at"] is None
+
+    def test_matched_announcements_need_published_tables(
+        self, api: Api, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        client, _ = api
+        monkeypatch.setattr(main, "list_attendees", AsyncMock(return_value=people(5)))
+        body = {"title": "Table ready", "body": "Go!", "audience": "matched"}
+        assert client.post("/api/host/announcements", json=body).status_code == 409
+
+    def test_attendees_see_only_due_announcements_for_their_audience(self) -> None:
+        now = datetime(2026, 11, 20, 19, 0, tzinfo=UTC)
+        made = now - timedelta(hours=1)
+        announcements = [
+            Announcement(id="a", title="All", body="x", created_at=made),
+            Announcement(
+                id="b", title="Later", body="x", created_at=made, send_at=now + timedelta(minutes=5)
+            ),
+            Announcement(id="c", title="Seated", body="x", audience="matched", created_at=made),
+        ]
+        assert [a.id for a in main.inbox(announcements, seated=False, now=now)] == ["a"]
+        assert [a.id for a in main.inbox(announcements, seated=True, now=now)] == ["a", "c"]

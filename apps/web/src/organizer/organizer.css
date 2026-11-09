@@ -2316,3 +2316,23 @@ body:has(#tt-admin) {
     display: none;
   }
 }
+
+#tt-admin .ad-token-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+#tt-admin .ad-token-form[hidden] {
+  display: none;
+}
+#tt-admin .ad-token-form input {
+  flex: 1 1 200px;
+}
+#tt-admin a.ad-demo {
+  color: inherit;
+  text-decoration: none;
+}
+#tt-admin .ad-workspace-footer select {
+  margin: 0 8px;
+}

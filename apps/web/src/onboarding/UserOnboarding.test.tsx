@@ -469,6 +469,28 @@ describe("attendee onboarding", () => {
     ).toBeTruthy();
   });
 
+  it("shows the host's updates after sign-up", async () => {
+    storage.setItem(ATTENDEE_TOKEN_KEY, "saved-token");
+    route("GET", "/api/me", () =>
+      json(
+        status({
+          announcements: [
+            {
+              id: "a1",
+              title: "Lunch moved",
+              body: "We're in Hall C today.",
+              sent_at: "2026-11-10T19:00:00Z",
+            },
+          ],
+        }),
+      ),
+    );
+    await mount();
+    await screen.findByRole("heading", { name: /is on its way/ });
+    expect(document.getElementById("ta-inbox")?.hidden).toBe(false);
+    expect(screen.getByText("We're in Hall C today.")).toBeTruthy();
+  });
+
   it("forgets a token the server no longer knows", async () => {
     storage.setItem(ATTENDEE_TOKEN_KEY, "stale-token");
     route("GET", "/api/me", () => json({ detail: "Unknown" }, 401));

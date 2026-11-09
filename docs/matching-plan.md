@@ -616,3 +616,26 @@ at `/`. The original page moved to `/classic`.
   host sees the check-in. The smoke test covers edits and check-in. On Elastic
   Cloud (Serverless): the 12 seed profiles were uploaded, and one draft run (not
   published) used `bm25+vectors+tags` with AI notes.
+
+## Organizer console wired to the backend
+
+The teammates' organizer template (#8) is now the host app at `/host`; the
+detailed review moved to `/host/review`.
+
+- **One event.** The backend runs one lunch per deployment, so the console edits
+  the server's event rather than creating new ones. `EventConfig` gained `name`,
+  `date`, `timezone`, `lunch_start`, and `lunch_end`; the attendee app shows the
+  name and lunch hours.
+- **Local times.** The cutoff and scheduled updates are entered in the event's
+  time zone and stored in UTC.
+- **Drafts.** "Create seating plan" makes a run; the console shows the published
+  run or the newest draft for the saved layout, and locks the room while one
+  exists. "Discard" deletes the drafts (`DELETE /api/host/runs`).
+- **Updates are real.** `POST /api/host/announcements` stores in-app updates
+  (now or scheduled, everyone or matched attendees); attendees see them at the
+  top of their page.
+- **Verified** in the browser on a fresh local stack: edit event → tables and
+  cutoff → demo attendees → AI-assisted run → publish → matched-only update →
+  an attendee who signed up in the browser sees their table and the update. The
+  smoke test covers event details, discarding drafts, and announcements.
+

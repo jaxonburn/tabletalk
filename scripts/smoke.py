@@ -48,6 +48,19 @@ def main() -> None:
         assert edited.json()["attendee"]["id"] == enrolled.json()["id"]
         assert edited.json()["attendee"]["company"] == "Demo Co"
         assert client.post("/api/me/check-in", headers=token).status_code == 409
+        event = client.get("/api/host/state").json()["event"]
+        event |= {"name": "Smoke Lunch", "date": "2026-11-20", "timezone": "America/Denver"}
+        client.put("/api/host/event", json=event).raise_for_status()
+        assert client.get("/api/conference").json()["name"] == "Smoke Lunch"
+        throwaway = client.post("/api/host/runs", json={"seed": 9})
+        throwaway.raise_for_status()
+        assert client.delete("/api/host/runs").json()["deleted"] == 1
+        assert client.get("/api/host/state").json()["runs"] == []
+        hello = {"title": "Lunch soon", "body": "Tables open at noon."}
+        client.post("/api/host/announcements", json=hello).raise_for_status()
+        assert client.get("/api/me", headers=token).json()["announcements"][0]["title"] == (
+            "Lunch soon"
+        )
         draft = client.post("/api/host/runs", json={"seed": 3})
         draft.raise_for_status()
         run = draft.json()
@@ -100,7 +113,8 @@ def main() -> None:
         assert client.put("/api/host/event", json={}).status_code == 409
         assert client.get("/api/host/state").json()["status"] == "published"
     print(
-        "Live demo passed: enrollment, edits, attendee tokens, seeding, draft runs, "
+        "Live demo passed: enrollment, edits, event details, announcements, discarding "
+        "drafts, attendee tokens, seeding, draft runs, "
         "publishing, personal tables, check-in, group allocation, explanations, and idempotence."
     )
 

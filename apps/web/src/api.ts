@@ -62,12 +62,35 @@ export interface MyAssignment {
   location?: string;
 }
 
+export interface AttendeeAnnouncement {
+  id: string;
+  title: string;
+  body: string;
+  sent_at: string;
+}
+
+export type AnnouncementAudience = "all" | "matched";
+
+export interface AnnouncementRequest {
+  title: string;
+  body: string;
+  audience: AnnouncementAudience;
+  send_at: string | null;
+}
+
+export interface Announcement extends AnnouncementRequest {
+  id: string;
+  created_at: string;
+  recipients: number;
+}
+
 export interface MyStatus {
   attendee: Attendee;
   status: EnrollmentStatus;
   enrollment_closes_at: string | null;
   assignment: MyAssignment | null;
   checked_in_at?: string | null;
+  announcements?: AttendeeAnnouncement[];
 }
 
 export interface MemberNote {
@@ -146,6 +169,11 @@ export interface EventConfig {
   auto_publish?: boolean;
   lunch_time?: string;
   location?: string;
+  name?: string;
+  date?: string | null;
+  timezone?: string;
+  lunch_start?: string;
+  lunch_end?: string;
 }
 
 export interface AutoMatchState {
@@ -221,6 +249,7 @@ export interface HostState {
   llm?: LLMStatus | null;
   auto?: AutoMatchState | null;
   check_ins?: Record<string, string>;
+  announcements?: Announcement[];
 }
 
 export class ApiError extends Error {
@@ -233,7 +262,7 @@ export class ApiError extends Error {
 }
 
 export interface RequestOptions {
-  method?: "GET" | "POST" | "PUT";
+  method?: "GET" | "POST" | "PUT" | "DELETE";
   hostToken?: string;
   attendeeToken?: string;
   invalidMessage?: string;

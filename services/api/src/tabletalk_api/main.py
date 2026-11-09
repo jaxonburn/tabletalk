@@ -24,7 +24,10 @@ from tabletalk_shared.llm import (
     create_llm_client,
 )
 from tabletalk_shared.models import (
+    Announcement,
+    AnnouncementRequest,
     Attendee,
+    AttendeeAnnouncement,
     AutoMatchState,
     ConferenceState,
     EnrolledAttendee,
@@ -49,8 +52,10 @@ from tabletalk_shared.storage import (
     ATTENDEES_INDEX,
     check_readiness,
     create_client,
+    delete_draft_runs,
     ensure_indices,
     find_attendee_by_token,
+    list_announcements,
     list_attendees,
     list_check_ins,
     list_runs,
@@ -59,6 +64,7 @@ from tabletalk_shared.storage import (
     read_event,
     read_plan,
     read_run,
+    save_announcement,
     save_auto_state,
     save_check_in,
     save_event,
@@ -195,6 +201,7 @@ async def conference(services: Dependencies) -> ConferenceState:
         goal_prompts={goal: GoalPrompt(**prompt) for goal, prompt in GOAL_PROMPTS.items()},
         lunch_time=event.lunch_time,
         location=event.location,
+        name=event.name,
     )
 
 
@@ -253,11 +260,23 @@ def my_group(plan: MatchPlan | None, attendee_id: str) -> LunchGroup | None:
     return next((g for g in groups if any(m.id == attendee_id for m in g.members)), None)
 
 
+def inbox(
+    announcements: list[Announcement], seated: bool, now: datetime
+) -> list[AttendeeAnnouncement]:
+    """Announcements this attendee should see now, newest first."""
+    return [
+        AttendeeAnnouncement(id=a.id, title=a.title, body=a.body, sent_at=a.send_at or a.created_at)
+        for a in announcements
+        if (a.send_at is None or a.send_at <= now) and (a.audience == "all" or seated)
+    ]
+
+
 async def my_status(services: Services, attendee: Attendee) -> MyStatus:
-    event, plan, checked_in_at = await asyncio.gather(
+    event, plan, checked_in_at, announcements = await asyncio.gather(
         read_event(services.elasticsearch),
         read_plan(services.elasticsearch),
         read_check_in(services.elasticsearch, attendee.id),
+        list_announcements(services.elasticsearch),
     )
     assignment = None
     if (group := my_group(plan, attendee.id)) is not None:
@@ -290,6 +309,7 @@ async def my_status(services: Services, attendee: Attendee) -> MyStatus:
         enrollment_closes_at=event.enrollment_closes_at,
         assignment=assignment,
         checked_in_at=checked_in_at if assignment else None,
+        announcements=inbox(announcements, assignment is not None, utc_now()),
     )
 
 
@@ -424,6 +444,7 @@ async def host_state(services: Dependencies) -> HostState:
         llm=llm_status(),
         auto=await read_auto_state(services.elasticsearch),
         check_ins=await list_check_ins(services.elasticsearch),
+        announcements=await list_announcements(services.elasticsearch),
     )
 
 
@@ -438,6 +459,48 @@ async def update_event(event: EventConfig, services: Dependencies) -> EventConfi
                 409, f"{enrolled} people are enrolled but these tables seat {event.capacity}."
             )
         return await save_event(services.elasticsearch, event)
+
+
+@app.delete("/api/host/runs", dependencies=HostOnly)
+async def discard_drafts(services: Dependencies) -> dict[str, int]:
+    """Discard every unpublished draft run. The published run is never removed."""
+    async with services.mutation_lock:
+        plan = await read_plan(services.elasticsearch)
+        published = plan.run_id if plan else None
+        deleted = await delete_draft_runs(services.elasticsearch, published)
+    logger.info("Draft runs discarded: count=%d", deleted)
+    return {"deleted": deleted}
+
+
+@app.post(
+    "/api/host/announcements",
+    response_model=Announcement,
+    status_code=201,
+    dependencies=HostOnly,
+)
+async def announce(request: AnnouncementRequest, services: Dependencies) -> Announcement:
+    """Post an update to attendees' in-app inbox, now or at a scheduled time."""
+    attendees, plan = await asyncio.gather(
+        list_attendees(services.elasticsearch), read_plan(services.elasticsearch)
+    )
+    if request.audience == "matched" and plan is None:
+        raise HTTPException(409, "Publish tables before messaging matched attendees.")
+    now = utc_now()
+    if request.send_at is not None and request.send_at <= now:
+        request = request.model_copy(update={"send_at": None})
+    recipients = (
+        sum(len(group.members) for group in plan.groups)
+        if request.audience == "matched" and plan
+        else len(attendees)
+    )
+    if not recipients:
+        raise HTTPException(409, "No attendees are in this audience yet.")
+    announcement = Announcement(
+        **request.model_dump(), id=uuid4().hex[:12], created_at=now, recipients=recipients
+    )
+    await save_announcement(services.elasticsearch, announcement)
+    logger.info("Announcement saved: audience=%s", request.audience)
+    return announcement
 
 
 class RunOptions(BaseModel):
@@ -504,6 +567,9 @@ async def publish(services: Services, run: MatchRun) -> MatchPlan:
         if existing.run_id == run.id:
             return existing
         raise HTTPException(409, "A different match run is already published.")
+    # The cutoff watcher publishes a run it made earlier; it may have been discarded since.
+    if await read_run(services.elasticsearch, run.id) is None:
+        raise HTTPException(409, "That match run was discarded. Produce a new run to publish.")
     event = await read_event(services.elasticsearch)
     if run.tables != event.tables or run.min_table_size != event.min_table_size:
         raise HTTPException(
