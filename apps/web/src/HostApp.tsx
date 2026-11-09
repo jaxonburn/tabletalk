@@ -660,7 +660,11 @@ export default function HostApp() {
   return (
     <div className="app-shell host-shell">
       <header className="site-header">
-        <a className="wordmark" href="/" aria-label="TableTalk attendee view">
+        <a
+          className="wordmark"
+          href="/user-onboarding"
+          aria-label="TableTalk attendee view"
+        >
           <span className="logo-mark" aria-hidden="true">
             tt
           </span>
@@ -1075,7 +1079,7 @@ export default function HostApp() {
       </main>
       <footer>
         <span>Host tools for TableTalk.</span>
-        <a href="/">Back to the attendee view</a>
+        <a href="/user-onboarding">Back to the attendee view</a>
       </footer>
     </div>
   );

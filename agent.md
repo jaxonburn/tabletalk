@@ -17,11 +17,16 @@ integrations; Dash0 is the observability destination.
 - `apps/web`: React, TypeScript, Vite. Same-origin `/api` requests are proxied to
   the conference API by Vite in development. The browser never accesses
   Elasticsearch or the matching service directly. `src/main.tsx` picks the page
-  from the path: `/host` loads the host view (`HostApp.tsx`), `/classic` loads the
-  original single-page app (`App.tsx`), `/organizer-workflow` (or
-  `/event-organizer`) loads the organizer prototype in `src/organizer/`, and
-  everything else (including `/user-onboarding`) loads the attendee app in
-  `src/onboarding/`. Each page is a separate chunk with its own stylesheet.
+  with `pageForPath` in `src/routes.ts`: `/user-onboarding` loads the attendee
+  app in `src/onboarding/`, `/organizer-workflow` (or `/event-organizer`) the
+  organizer prototype in `src/organizer/`, `/host` the host view
+  (`HostApp.tsx`), `/classic` the original single-page app (`App.tsx`), and `/`
+  (and any other path) the landing page in `src/landing/`. Each page is a
+  separate chunk with its own stylesheet.
+- `src/landing/`: the landing template's HTML and CSS. It has no script: the
+  animation is CSS, and its Attendee Workflow and Organizer Workflow buttons are
+  links to `ATTENDEE_PATH` and `ORGANIZER_PATH` (keep them in step with
+  `src/routes.ts`; `LandingPage.test.tsx` checks they match).
 - `src/onboarding/`: the onboarding template's HTML and CSS, kept as close to the
   original as possible, plus `onboarding.ts`, which drives the markup and talks to
   the API: `GET /api/conference` for event details and goal copy, `POST

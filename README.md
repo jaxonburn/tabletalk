@@ -12,8 +12,11 @@ app, and Gitar for reviewing the work as we build.
 
 ## What's here
 
-- A mobile-first attendee app at `/`: about you (name, title, company), interests,
-  and Learn / Share / Connect goals with a starred focus and a question per goal.
+- A landing page at `/` with two ways in: **Attendee Workflow** and **Organizer
+  Workflow**.
+- A mobile-first attendee app at `/user-onboarding`: about you (name, title,
+  company), interests, and Learn / Share / Connect goals with a starred focus and
+  a question per goal.
   Then a waiting room that checks for your table, the table reveal (a named table,
   your tablemates, why you're there, topics, and "See everyone" for the whole
   table), "I'm seated" check-in, and conversation cards. You can edit your answers
@@ -41,7 +44,8 @@ You'll need Docker with Compose **2.24.4 or newer**. Give Docker at least
 docker compose up --build -d
 ```
 
-Open **http://localhost:5173** and enroll yourself using fictional details:
+Open **http://localhost:5173**, choose **Attendee Workflow** (or go straight to
+http://localhost:5173/user-onboarding), and enroll yourself using fictional details:
 
 1. Enter your name, role, and topics.
 2. Pick one or more of **Learn**, **Share**, or **Connect**, and answer the short
@@ -82,7 +86,8 @@ token for the host view and host API.
 
 | Local URL | What's there |
 | --- | --- |
-| http://localhost:5173 | The attendee app (also `/user-onboarding`) |
+| http://localhost:5173 | Landing page: links to the attendee and organizer workflows |
+| http://localhost:5173/user-onboarding | The attendee app |
 | http://localhost:5173/host | The host view: setup, runs, review, publish, check-ins |
 | http://localhost:5173/classic | The original single-page attendee app |
 | http://localhost:5173/organizer-workflow | Organizer workflow prototype (sample data) |

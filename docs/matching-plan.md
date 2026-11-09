@@ -595,7 +595,8 @@ Each later step makes that demo richer.
 ## New attendee UI wired to the backend
 
 The teammates' onboarding UI (`apps/web/src/onboarding/`) is now the attendee app
-at `/`. The original page moved to `/classic`.
+at `/user-onboarding`, reached from the landing page at `/`. The original page
+moved to `/classic`.
 
 - **One set of goals.** The UI uses the API's Learn / Share / Connect goals.
   `GoalPrompt` gained `label` and `short`, and the cards show the server's copy.
