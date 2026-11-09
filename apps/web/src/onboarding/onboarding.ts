@@ -1,165 +1,83 @@
 /**
- * Behavior for the attendee onboarding page (/user-onboarding), ported from the
- * TableTalk attendee prototype (tabletalk-tikatika.html).
+ * Behavior for the attendee app (/, also /user-onboarding), ported from the
+ * TableTalk attendee prototype (tabletalk-tikatika.html) and wired to the API.
  *
  * Step 1: name, title, and company. Step 2: interests. Step 3: pick one or more
  * lunch goals, star one as the focus, and answer a question for each selected
- * goal. Then a waiting room, a sample match, check-in, and icebreakers.
- *
- * Everything runs in the browser. Goals, tables, and matching are sample data,
- * and nothing is sent to the conference API yet.
+ * goal. Saving enrolls you (POST /api/enrollments) or updates your answers
+ * (PUT /api/me). Then a waiting room that checks /api/me until the host
+ * publishes tables, your table reveal, check-in, and conversation starters.
  */
 
-export type GoalId =
-  "learn" | "meet" | "collaborate" | "opportunities" | "share";
+import {
+  ApiError,
+  request,
+  type ConferenceState,
+  type EnrolledAttendee,
+  type Enrollment,
+  type Goal,
+  type GoalPrompt,
+  type MyAssignment,
+  type MyStatus,
+} from "../api";
+import { clearToken, readToken, storeToken } from "../attendeeToken";
 
 export interface GoalDefinition {
-  id: GoalId;
+  id: Goal;
+  /** Used in element IDs, since goal values contain spaces and apostrophes. */
+  slug: string;
   label: string;
   short: string;
   question: string;
   hint: string;
 }
 
-// Demo configuration from the template. When this page is connected to the
-// API, replace these IDs, labels, questions, and example hints with the
-// server's goal definitions (see services/api/src/tabletalk_api/seed.py).
+// Fallbacks match services/api/src/tabletalk_api/seed.py. The API's copy wins.
 export const GOALS: readonly GoalDefinition[] = [
   {
-    id: "learn",
+    id: "Learn",
+    slug: "learn",
     label: "Learn something",
     short: "Questions & fresh ideas",
     question: "What questions do you have about the topics you want to learn?",
-    hint: "For example: How do teams find their first ten customers?",
+    hint: "For example: How do you tune Kubernetes autoscaling for a service with unpredictable traffic?",
   },
   {
-    id: "meet",
-    label: "Meet new people",
-    short: "Good company, no pitch",
-    question: "Who would you love to meet over lunch?",
-    hint: "For example: Founders, designers, or people working in AI.",
-  },
-  {
-    id: "collaborate",
-    label: "Find collaborators",
-    short: "Build something together",
-    question: "What are you working on, and who could help you build it?",
-    hint: "For example: A developer to test an idea with, or a cofounder with sales experience.",
-  },
-  {
-    id: "opportunities",
-    label: "Explore opportunities",
-    short: "Your next chapter",
-    question: "What kind of opportunity are you looking for?",
-    hint: "For example: A product role at an early-stage company.",
-  },
-  {
-    id: "share",
+    id: "Share something I've learned",
+    slug: "share",
     label: "Share my expertise",
     short: "Put your experience to use",
-    question: "What would you enjoy helping someone with?",
-    hint: "For example: Reviewing a portfolio or finding early customers.",
+    question: "What have you learned that you would like to share?",
+    hint: "For example: I've tuned Kubernetes autoscaling for a service with unpredictable traffic.",
+  },
+  {
+    id: "Meet connections",
+    slug: "connect",
+    label: "Meet new people",
+    short: "Good company, no pitch",
+    question: "What topics would you be happy to discuss with new people?",
+    hint: "For example: I'd enjoy comparing platform engineering lessons and hearing how other teams work.",
   },
 ];
 
-const INTERESTS = [
-  "AI & tech",
-  "Design",
-  "Startups",
-  "Sales & growth",
-  "Careers",
-  "Community",
+export const INTERESTS = [
+  "Kubernetes",
+  "Platform engineering",
+  "Observability",
+  "Security",
+  "AI & ML",
+  "Open source",
+  "Developer experience",
+  "Data & search",
 ];
-
-interface SampleTable {
-  number: string;
-  vibe: string;
-  theme: [string, string];
-  names: string[];
-  initials: string[];
-  people: [string, string][];
-  tags: string[];
-  questions: string[];
-}
-
-const TABLES = {
-  builders: {
-    number: "08",
-    vibe: "THE BUILDERS’ TABLE",
-    theme: ["Small bets.", "Big ideas."],
-    names: ["Maya", "Jordan", "Ari", "Sam"],
-    initials: ["MK", "JL", "AP", "SN"],
-    people: [
-      ["Maya", "Founder, building her first sales motion"],
-      ["Jordan", "Product designer, open to collaborations"],
-    ],
-    tags: ["Side projects", "Product", "Early customers"],
-    questions: [
-      "What’s a tiny frustration you’d happily build an entire company to fix?",
-      "What’s something you shipped before you felt ready?",
-      "What’s one skill at this table you’d borrow for a week?",
-    ],
-  },
-  career: {
-    number: "12",
-    vibe: "THE NEXT-CHAPTER TABLE",
-    theme: ["New faces.", "Next moves."],
-    names: ["Nina", "Chris", "Alex", "Drew"],
-    initials: ["NP", "CL", "AT", "DW"],
-    people: [
-      ["Nina", "Engineering lead, growing her team"],
-      ["Alex", "Developer, exploring new roles"],
-    ],
-    tags: ["Career pivots", "Hiring", "Small teams"],
-    questions: [
-      "What’s a job you’d try for a month if experience didn’t matter?",
-      "What’s something you’re good at that your résumé completely misses?",
-      "What’s the best career advice you decided to ignore?",
-    ],
-  },
-  open: {
-    number: "03",
-    vibe: "THE HAPPY-DETOUR TABLE",
-    theme: ["No pitches.", "Good stories."],
-    names: ["Leo", "Jess", "Kai", "Robin"],
-    initials: ["LC", "JS", "KN", "RH"],
-    people: [
-      ["Leo", "Architect, curious about technology"],
-      ["Jess", "Community builder, side-project enthusiast"],
-    ],
-    tags: ["Creative work", "Side quests", "Fresh perspectives"],
-    questions: [
-      "What’s a rabbit hole you fell into recently that deserves more attention?",
-      "What’s a surprisingly strong opinion you have about something very unimportant?",
-      "What’s something you made just because you wanted it to exist?",
-    ],
-  },
-} satisfies Record<string, SampleTable>;
-
-/** Example submission shape only: align these field names with the API. */
-export interface OnboardingSubmission {
-  name: string;
-  role: string;
-  company: string;
-  interests: string[];
-  selected_goal_ids: GoalId[];
-  focus_goal_id: GoalId | null;
-  goal_answers: Partial<Record<GoalId, string>>;
-}
-
-interface PrototypeHook {
-  goalDefinitions: GoalDefinition[];
-  buildSubmission: () => OnboardingSubmission;
-  getLastSubmission: () => OnboardingSubmission | null;
-  getCheckIn: () => { table: string; seatedAt: string } | null;
-}
-
-declare global {
-  interface Window {
-    /** Development hook for checking the prototype's submission, not an API. */
-    tabletalkPrototype?: Readonly<PrototypeHook>;
-  }
-}
+const MAX_INTERESTS = 8;
+const MAX_ANSWER = 500;
+export const POLL_MS = 15_000;
+const FALLBACK_QUESTIONS = [
+  "What’s one idea from today’s talks you want to try back at work?",
+  "What tool or practice would you recommend to everyone at this table?",
+  "What problem are you hoping someone here has already solved?",
+];
 
 type Screen =
   | "about"
@@ -206,6 +124,51 @@ interface GoalView {
   badge: HTMLSpanElement;
   input: HTMLTextAreaElement;
   error: HTMLParagraphElement;
+  label: HTMLElement;
+  short: HTMLElement;
+  question: HTMLElement;
+  hint: HTMLElement;
+}
+
+/** Server goal copy, falling back to the built-in text for anything missing. */
+export function goalDefinitions(
+  prompts: Partial<Record<Goal, GoalPrompt>> = {},
+): GoalDefinition[] {
+  return GOALS.map((g) => {
+    const p = prompts[g.id];
+    return {
+      ...g,
+      label: p?.label || g.label,
+      short: p?.short || g.short,
+      question: p?.question || g.question,
+      hint: p?.example_hint ? `For example: ${p.example_hint}` : g.hint,
+    };
+  });
+}
+
+/** "11:40 AM" split for the waiting room's big clock. */
+export function clockParts(iso: string): [string, string] {
+  const parts = new Intl.DateTimeFormat([], {
+    hour: "numeric",
+    minute: "2-digit",
+  }).formatToParts(new Date(iso));
+  const period = parts.find((p) => p.type === "dayPeriod")?.value ?? "";
+  const time = parts
+    .filter((p) => p.type !== "dayPeriod")
+    .map((p) => p.value)
+    .join("")
+    .trim();
+  return [time, period];
+}
+
+function initials(name: string) {
+  return (name.trim()[0] ?? "?").toUpperCase();
+}
+
+function errorText(error: unknown) {
+  return error instanceof Error
+    ? error.message
+    : "Something went wrong. Please try again.";
 }
 
 /**
@@ -216,6 +179,7 @@ export function initOnboarding(root: HTMLElement): () => void {
   const controller = new AbortController();
   const { signal } = controller;
   let matchTimer: number | undefined;
+  let pollTimer: number | undefined;
 
   function q<T extends HTMLElement = HTMLElement>(id: string): T {
     const node = root.querySelector<T>(`#ta-${id}`);
@@ -246,18 +210,21 @@ export function initOnboarding(root: HTMLElement): () => void {
     return node.animate(keyframes, options);
   }
 
+  let goals = goalDefinitions();
   const state = {
-    selectedGoals: new Set<GoalId>(),
-    explicitFocus: null as GoalId | null,
-    answers: {} as Partial<Record<GoalId, string>>,
+    selectedGoals: new Set<Goal>(),
+    explicitFocus: null as Goal | null,
+    answers: {} as Partial<Record<Goal, string>>,
     interests: new Set<string>(),
-    lastSubmission: null as OnboardingSubmission | null,
   };
+  let conference: ConferenceState | null = null;
+  let me: MyStatus | null = null;
+  let token = readToken();
   let current: Screen = "about";
-  let assigned: SampleTable | null = null;
+  let questions: string[] = [];
   let questionIndex = 0;
   let questionRevealed = false;
-  let seatedAt: string | null = null;
+  let busy = false;
 
   function el<K extends keyof HTMLElementTagNameMap>(
     tag: K,
@@ -274,10 +241,10 @@ export function initOnboarding(root: HTMLElement): () => void {
   }
 
   function selectedGoals() {
-    return GOALS.filter((g) => state.selectedGoals.has(g.id));
+    return goals.filter((g) => state.selectedGoals.has(g.id));
   }
 
-  function focusGoal(): GoalId | null {
+  function focusGoal(): Goal | null {
     const selected = selectedGoals();
     if (selected.some((g) => g.id === state.explicitFocus)) {
       return state.explicitFocus;
@@ -292,6 +259,19 @@ export function initOnboarding(root: HTMLElement): () => void {
       title: input("title").value.trim(),
       company: input("company").value.trim(),
     };
+  }
+
+  /** Answers can change only while sign-ups are open. */
+  function editable() {
+    const status = me?.status ?? conference?.status ?? "open";
+    return status === "open";
+  }
+
+  function backFrom(name: Screen): Screen | undefined {
+    const prev = BACK[name];
+    if (prev && ONBOARDING.includes(prev) && me && !editable())
+      return undefined;
+    return prev;
   }
 
   function show(name: Screen, { focus = true, back = false } = {}) {
@@ -334,6 +314,7 @@ export function initOnboarding(root: HTMLElement): () => void {
         heading.focus();
       }
     }
+    schedulePoll();
   }
 
   function pulse(node: Element) {
@@ -343,7 +324,31 @@ export function initOnboarding(root: HTMLElement): () => void {
     });
   }
 
+  function fieldError(inputId: string, errorId: string, message: string) {
+    const field = q(inputId);
+    const error = q(errorId);
+    field.setAttribute("aria-invalid", String(Boolean(message)));
+    error.textContent = message;
+    error.hidden = !message;
+  }
+
   // Step 2: interests
+
+  function interestError(message: string) {
+    q("interest-error").textContent = message;
+    q("interest-error").hidden = !message;
+  }
+
+  function selectInterest(checkbox: HTMLInputElement, value: string) {
+    if (state.interests.size >= MAX_INTERESTS) {
+      checkbox.checked = false;
+      interestError(`You can pick up to ${MAX_INTERESTS} interests.`);
+      return false;
+    }
+    state.interests.add(value);
+    interestError("");
+    return true;
+  }
 
   function addInterest(label: string, { select = false } = {}) {
     const value = label.trim();
@@ -352,9 +357,8 @@ export function initOnboarding(root: HTMLElement): () => void {
       (i) => i.value.toLowerCase() === value.toLowerCase(),
     );
     if (existing) {
-      if (select) {
-        existing.checked = true;
-        state.interests.add(existing.value);
+      if (select && !existing.checked) {
+        existing.checked = selectInterest(existing, existing.value);
       }
       return;
     }
@@ -367,15 +371,14 @@ export function initOnboarding(root: HTMLElement): () => void {
       "aria-label": value,
     });
     const span = el("span", {}, value);
-    checkbox.checked = select;
-    if (select) state.interests.add(value);
+    wrap.append(checkbox, span);
+    q("interests").append(wrap);
+    if (select) checkbox.checked = selectInterest(checkbox, value);
     on(checkbox, "change", () => {
-      if (checkbox.checked) state.interests.add(value);
+      if (checkbox.checked) selectInterest(checkbox, value);
       else state.interests.delete(value);
       pulse(span);
     });
-    wrap.append(checkbox, span);
-    q("interests").append(wrap);
   }
   INTERESTS.forEach((i) => addInterest(i));
 
@@ -398,6 +401,12 @@ export function initOnboarding(root: HTMLElement): () => void {
       customInterest();
     }
   });
+
+  function interestsValid() {
+    if (state.interests.size) return true;
+    interestError("Pick at least one interest so we can find common ground.");
+    return false;
+  }
 
   // Step 3: goals
 
@@ -424,9 +433,9 @@ export function initOnboarding(root: HTMLElement): () => void {
     return svg;
   }
 
-  const goalViews = new Map<GoalId, GoalView>();
+  const goalViews = new Map<Goal, GoalView>();
 
-  function chooseGoal(id: GoalId, selected: boolean) {
+  function chooseGoal(id: Goal, selected: boolean) {
     if (selected) {
       state.selectedGoals.add(id);
       if (!state.explicitFocus) state.explicitFocus = id;
@@ -439,25 +448,27 @@ export function initOnboarding(root: HTMLElement): () => void {
     renderGoals({ animateId: selected ? id : null });
   }
 
-  GOALS.forEach((g) => {
+  goals.forEach((g) => {
     const card = el("div", {
       class: "ta-goal-item",
-      id: `ta-goal-item-${g.id}`,
+      id: `ta-goal-item-${g.slug}`,
     });
     const header = el("div", { class: "ta-goal-item-header" });
     const label = el("label", { class: "ta-goal-select cursor-interaction" });
     const choice = el("input", {
       type: "checkbox",
       value: g.id,
-      id: `ta-choice-${g.id}`,
-      "aria-controls": `ta-prompt-${g.id}`,
+      id: `ta-choice-${g.slug}`,
+      "aria-controls": `ta-prompt-${g.slug}`,
     });
     const text = el("span");
-    text.append(el("b", {}, g.label), el("small", {}, g.short));
+    const title = el("b", {}, g.label);
+    const short = el("small", {}, g.short);
+    text.append(title, short);
     label.append(choice, text);
     const star = el("button", {
       type: "button",
-      id: `ta-star-${g.id}`,
+      id: `ta-star-${g.slug}`,
       class: "ta-focus-star cursor-interaction",
       "aria-pressed": "false",
       "aria-label": `Select ${g.label} and make it your focus`,
@@ -467,28 +478,28 @@ export function initOnboarding(root: HTMLElement): () => void {
 
     const body = el("div", {
       class: "ta-goal-prompt",
-      id: `ta-prompt-${g.id}`,
+      id: `ta-prompt-${g.slug}`,
     });
     const badge = el("span", { class: "ta-focus-indicator" }, "YOUR FOCUS");
     const question = el(
       "label",
-      { class: "ta-label", for: `ta-answer-${g.id}` },
+      { class: "ta-label", for: `ta-answer-${g.slug}` },
       g.question,
     );
     const hint = el(
       "p",
-      { class: "ta-field-hint", id: `ta-hint-${g.id}` },
+      { class: "ta-field-hint", id: `ta-hint-${g.slug}` },
       g.hint,
     );
     const answer = el("textarea", {
-      id: `ta-answer-${g.id}`,
+      id: `ta-answer-${g.slug}`,
       rows: "3",
-      maxlength: "600",
-      "aria-describedby": `ta-hint-${g.id} ta-answer-error-${g.id}`,
+      maxlength: String(MAX_ANSWER),
+      "aria-describedby": `ta-hint-${g.slug} ta-answer-error-${g.slug}`,
     });
     const error = el("p", {
       class: "ta-field-error",
-      id: `ta-answer-error-${g.id}`,
+      id: `ta-answer-error-${g.slug}`,
     });
     body.hidden = true;
     badge.hidden = true;
@@ -505,6 +516,10 @@ export function initOnboarding(root: HTMLElement): () => void {
       badge,
       input: answer,
       error,
+      label: title,
+      short,
+      question,
+      hint,
     });
 
     on(choice, "change", () => {
@@ -527,26 +542,36 @@ export function initOnboarding(root: HTMLElement): () => void {
     });
   });
 
-  function fieldError(inputId: string, errorId: string, message: string) {
-    const field = q(inputId);
-    const error = q(errorId);
-    field.setAttribute("aria-invalid", String(Boolean(message)));
-    error.textContent = message;
-    error.hidden = !message;
+  /** Swap in the server's goal wording without rebuilding the cards. */
+  function applyGoalCopy() {
+    goals.forEach((g) => {
+      const v = goalViews.get(g.id);
+      if (!v) return;
+      v.label.textContent = g.label;
+      v.short.textContent = g.short;
+      v.question.textContent = g.question;
+      v.hint.textContent = g.hint;
+    });
+    renderGoals();
   }
 
   // Step 1: about you
 
-  const REQUIRED_NAMES: [string, string, string][] = [
-    ["first-name", "first-error", "first name"],
-    ["last-name", "last-error", "last name"],
+  const REQUIRED: [string, string, string][] = [
+    ["first-name", "first-error", "Please add your first name."],
+    ["last-name", "last-error", "Please add your last name."],
+    [
+      "title",
+      "title-error",
+      "Please add your title, so tablemates know what you do.",
+    ],
   ];
 
   function aboutValid() {
     let firstInvalid: HTMLInputElement | null = null;
-    for (const [id, errorId, label] of REQUIRED_NAMES) {
+    for (const [id, errorId, message] of REQUIRED) {
       const missing = !input(id).value.trim();
-      fieldError(id, errorId, missing ? `Please add your ${label}.` : "");
+      fieldError(id, errorId, missing ? message : "");
       if (missing && !firstInvalid) firstInvalid = input(id);
     }
     if (firstInvalid) {
@@ -558,16 +583,16 @@ export function initOnboarding(root: HTMLElement): () => void {
     q("about-error").textContent = "";
     return true;
   }
-  REQUIRED_NAMES.forEach(([id, errorId]) =>
+  REQUIRED.forEach(([id, errorId]) =>
     on(q(id), "input", () => {
       if (input(id).value.trim()) fieldError(id, errorId, "");
     }),
   );
 
-  function renderGoals({ animateId = null as GoalId | null } = {}) {
+  function renderGoals({ animateId = null as Goal | null } = {}) {
     const selected = selectedGoals();
     const focus = focusGoal();
-    GOALS.forEach((g) => {
+    goals.forEach((g) => {
       const v = goalViews.get(g.id);
       if (!v) return;
       const isOn = state.selectedGoals.has(g.id);
@@ -607,7 +632,7 @@ export function initOnboarding(root: HTMLElement): () => void {
         );
       }
     });
-    const focusLabel = GOALS.find((g) => g.id === focus)?.label;
+    const focusLabel = goals.find((g) => g.id === focus)?.label;
     q("goal-count").textContent = selected.length
       ? `${selected.length} goal${selected.length === 1 ? "" : "s"} selected · Focus: ${focusLabel}`
       : "Pick at least one goal to get started.";
@@ -620,6 +645,7 @@ export function initOnboarding(root: HTMLElement): () => void {
     show("topics");
   }
   on(q("topics-next"), "click", () => {
+    if (!interestsValid()) return;
     renderGoals();
     show("goals");
   });
@@ -641,7 +667,7 @@ export function initOnboarding(root: HTMLElement): () => void {
 
   // Always build answers from the selected goals, never from the full draft
   // cache: answers to goals that were deselected stay out of the submission.
-  function buildSubmission(): OnboardingSubmission {
+  function buildEnrollment(): Enrollment {
     const person = identity();
     const selected = selectedGoals();
     return {
@@ -649,11 +675,12 @@ export function initOnboarding(root: HTMLElement): () => void {
       role: person.title,
       company: person.company,
       interests: [...state.interests],
-      selected_goal_ids: selected.map((g) => g.id),
-      focus_goal_id: focusGoal(),
+      goals: selected.map((g) => g.id),
+      focus_goal: focusGoal(),
       goal_answers: Object.fromEntries(
         selected.map((g) => [g.id, (state.answers[g.id] ?? "").trim()]),
       ),
+      lunch_slot: conference?.lunch_slot ?? "day-1-lunch",
     };
   }
 
@@ -662,16 +689,16 @@ export function initOnboarding(root: HTMLElement): () => void {
     if (!state.selectedGoals.size) {
       q("goal-error").textContent = "Choose at least one lunch goal.";
       q("goal-error").hidden = false;
-      firstInvalid = q(`choice-${GOALS[0].id}`);
+      firstInvalid = q(`choice-${goals[0].slug}`);
     }
     for (const g of selectedGoals()) {
-      const answer = q<HTMLTextAreaElement>(`answer-${g.id}`);
+      const answer = q<HTMLTextAreaElement>(`answer-${g.slug}`);
       state.answers[g.id] = answer.value;
       if (!answer.value.trim()) {
         answer.setAttribute("aria-invalid", "true");
-        q(`answer-error-${g.id}`).textContent =
+        q(`answer-error-${g.slug}`).textContent =
           "A few words will help us find the right people.";
-        q(`answer-error-${g.id}`).hidden = false;
+        q(`answer-error-${g.slug}`).hidden = false;
         if (!firstInvalid) firstInvalid = answer;
       }
     }
@@ -684,119 +711,357 @@ export function initOnboarding(root: HTMLElement): () => void {
     return true;
   }
 
-  // Waiting room and sample match
-
-  function resetWaitingRoom() {
-    q("wait-initial").hidden = false;
-    q("wait-ready").hidden = true;
-    q("demo-control").hidden = false;
-    button("reveal-table").disabled = false;
+  function submitError(message: string) {
+    q("submit-error").textContent = message;
+    q("submit-error").hidden = !message;
   }
 
-  function waiting() {
-    resetWaitingRoom();
-    show("waiting");
+  function setBusy(id: string, value: boolean) {
+    busy = value;
+    button(id).setAttribute("aria-busy", String(value));
   }
 
-  function goalsNext() {
-    if (!goalsValid()) return;
-    state.lastSubmission = buildSubmission();
-    waiting();
+  async function enroll(enrollment: Enrollment): Promise<MyStatus> {
+    if (token) {
+      try {
+        return await request<MyStatus>("/api/me", enrollment, {
+          method: "PUT",
+          attendeeToken: token,
+        });
+      } catch (error) {
+        // A forgotten or reset enrollment: sign up again instead.
+        if (!(error instanceof ApiError && error.status === 401)) throw error;
+        forgetToken();
+      }
+    }
+    const created = await request<EnrolledAttendee>(
+      "/api/enrollments",
+      enrollment,
+    );
+    token = created.attendee_token;
+    storeToken(token);
+    return request<MyStatus>("/api/me", undefined, { attendeeToken: token });
+  }
+
+  /** Sign-ups closed mid-edit: show the saved enrollment's waiting room or table. */
+  async function returnToStatus() {
+    let status: MyStatus | null;
+    try {
+      status = await refresh();
+    } catch {
+      return;
+    }
+    if (!status || signal.aborted) return;
+    fillForm(status);
+    applyEventDetails();
+    if (status.assignment) {
+      renderAssigned(status.assignment);
+      show("assigned");
+    } else {
+      renderWaiting();
+      show("waiting");
+    }
+  }
+
+  async function goalsNext() {
+    if (busy || !goalsValid()) return;
+    submitError("");
+    setBusy("submit", true);
+    try {
+      const status = await enroll(buildEnrollment());
+      if (signal.aborted) return;
+      me = status;
+      renderWaiting();
+      show("waiting");
+    } catch (error) {
+      if (signal.aborted) return;
+      submitError(errorText(error));
+      if (error instanceof ApiError && error.status === 409) {
+        if (token) await returnToStatus();
+        else void loadConference();
+      }
+    } finally {
+      setBusy("submit", false);
+    }
   }
   on(q("goals-form"), "submit", (e) => {
     e.preventDefault();
-    goalsNext();
+    void goalsNext();
   });
-  on(q("submit"), "click", goalsNext);
-  on(q("edit"), "click", () => show("about", { back: true }));
-  on(q("wait-edit"), "click", () => show("about", { back: true }));
+  on(q("submit"), "click", () => void goalsNext());
+
+  function editAnswers() {
+    if (!editable()) return;
+    window.clearTimeout(matchTimer);
+    closeNav();
+    show("about", { back: true });
+  }
+  on(q("edit"), "click", editAnswers);
+  on(q("wait-edit"), "click", editAnswers);
+
+  // Event details
+
+  function when() {
+    const lunch = me?.assignment;
+    return [
+      lunch?.lunch_time || conference?.lunch_time,
+      lunch?.location || conference?.location,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  }
+
+  function applyEventDetails() {
+    const name = conference?.name ?? "TableTalk";
+    q("event").textContent = `${name} / lunch`.toUpperCase();
+    q("nav-event-name").textContent = name.toUpperCase();
+    q("nav-event-when").textContent = when();
+    const closed = !token && conference && conference.status !== "open";
+    q("closed-notice").hidden = !closed;
+    q("closed-notice").textContent = closed
+      ? conference?.status === "published"
+        ? "Tables for this lunch are already set, so sign-ups are closed. See you at the next one!"
+        : "Sign-ups for this lunch have closed. The host is setting the tables now."
+      : "";
+    button("continue").disabled = Boolean(closed);
+    button("submit").disabled = Boolean(closed);
+    q("submit-label").textContent = me ? "Save my changes" : "Save my spot";
+    q("nav-edit").hidden = !me || !editable();
+  }
+
+  async function loadConference() {
+    try {
+      conference = await request<ConferenceState>("/api/conference");
+    } catch {
+      return; // Built-in goal copy still works, and enrollment shows its own errors.
+    }
+    if (signal.aborted) return;
+    goals = goalDefinitions(conference.goal_prompts);
+    applyGoalCopy();
+    applyEventDetails();
+    if (current === "waiting") renderWaiting();
+  }
+
+  // Waiting room
+
+  function setClock(time: string, period = "") {
+    const clock = q("reveal-time");
+    clock.replaceChildren(document.createTextNode(time));
+    if (period) clock.append(el("span", {}, ` ${period}`));
+  }
+
+  function renderWaiting() {
+    applyEventDetails();
+    const assignment = me?.assignment;
+    q("wait-initial").hidden = Boolean(assignment);
+    q("wait-ready").hidden = !assignment;
+    q("demo-control").hidden = Boolean(assignment);
+    q("wait-edit").hidden = !editable();
+    button("reveal-table").disabled = false;
+    if (assignment) {
+      const first = me?.attendee.name.split(" ")[0] ?? "";
+      q("ready-message").textContent =
+        `The wait is over${first ? `, ${first}` : ""}. We found your table.`;
+      return;
+    }
+    const cutoff = me?.enrollment_closes_at ?? conference?.enrollment_closes_at;
+    if (!editable()) {
+      q("time-label").textContent = "SIGN-UPS ARE CLOSED";
+      setClock("Any", "minute");
+      q("wait-when").textContent =
+        "Your host is setting the tables now. This page updates on its own.";
+    } else if (cutoff) {
+      const [time, period] = clockParts(cutoff);
+      q("time-label").textContent = "TABLE MATCHES OPEN AT";
+      setClock(time, period);
+      q("wait-when").textContent =
+        `We will match you with a table after ${time} ${period}. Stay tuned!`.replace(
+          "  ",
+          " ",
+        );
+    } else {
+      q("time-label").textContent = "TABLE MATCHES OPEN";
+      setClock("Soon");
+      q("wait-when").textContent =
+        "We will match you with a table once sign-ups close. Stay tuned!";
+    }
+  }
+
+  function forgetToken() {
+    clearToken();
+    token = "";
+    me = null;
+  }
+
+  /** Fetch my enrollment. Returns null (and forgets the token) if it's gone. */
+  async function refresh(): Promise<MyStatus | null> {
+    if (!token) return null;
+    try {
+      const status = await request<MyStatus>("/api/me", undefined, {
+        attendeeToken: token,
+      });
+      if (signal.aborted) return null;
+      me = status;
+      return status;
+    } catch (error) {
+      if (
+        error instanceof ApiError &&
+        error.status === 401 &&
+        !signal.aborted
+      ) {
+        forgetToken();
+        resetForm();
+        applyEventDetails();
+        show("about", { back: true });
+        q("closed-notice").textContent =
+          "We couldn't find your enrollment on this device. Please sign up again.";
+        q("closed-notice").hidden = false;
+      }
+      throw error;
+    }
+  }
+
+  async function checkNow(manual = false) {
+    if (manual) q("check-status").textContent = "CHECKING…";
+    const hadTable = Boolean(me?.assignment);
+    try {
+      await refresh();
+    } catch {
+      if (manual && !signal.aborted)
+        q("check-status").textContent = "COULDN’T CHECK · TRY AGAIN";
+      return;
+    }
+    if (signal.aborted || current !== "waiting") return;
+    renderWaiting();
+    schedulePoll();
+    if (me?.assignment) {
+      if (!hadTable) q("reveal-table").focus();
+    } else {
+      const time = new Intl.DateTimeFormat([], {
+        hour: "numeric",
+        minute: "2-digit",
+      }).format(new Date());
+      q("check-status").textContent = `NOT YET · CHECKED ${time}`.toUpperCase();
+    }
+  }
+  on(q("check-now"), "click", () => void checkNow(true));
+
+  function schedulePoll() {
+    window.clearInterval(pollTimer);
+    pollTimer = undefined;
+    if (current !== "waiting" || !token || me?.assignment) return;
+    pollTimer = window.setInterval(() => void checkNow(), POLL_MS);
+  }
+  on(document, "visibilitychange", () => {
+    if (
+      document.visibilityState === "visible" &&
+      current === "waiting" &&
+      !me?.assignment
+    ) {
+      void checkNow();
+    }
+  });
+
+  // Your table
 
   function setText(parent: ParentNode, selector: string, text: string) {
     const node = parent.querySelector(selector);
     if (node) node.textContent = text;
   }
 
-  function pair() {
-    const submission = state.lastSubmission;
-    if (!submission) return;
-    const focus = submission.focus_goal_id;
-    const offer = submission.goal_answers.share ?? "";
-    let t: SampleTable;
-    let reason: string;
-    if (focus === "meet") {
-      t = TABLES.open;
-      reason =
-        "You’re here to meet new people. This table mixes creative backgrounds with a shared curiosity about making things.";
-    } else if (focus === "opportunities") {
-      t = TABLES.career;
-      reason =
-        "You’re exploring what’s next. Nina is growing her team, and Alex is making a similar move.";
-    } else if (focus === "share") {
-      t = TABLES.builders;
-      reason = /sales|growth|outbound|customer/i.test(offer)
-        ? "Maya is building her first sales motion. Your experience can help, alongside different perspectives on product and design."
-        : "Maya and Ari are building early-stage projects. This table brings together people who can share experience and learn from each other.";
-    } else {
-      t = TABLES.builders;
-      reason =
-        focus === "learn"
-          ? "You’re here to learn. Jordan brings product experience, while Maya and Ari bring the perspective of building from scratch."
-          : "You’re looking for collaborators. Jordan is open to projects, and Maya and Ari are building early-stage products.";
-    }
-    assigned = t;
-    q("number").textContent = t.number;
-    q("seated-number").textContent = t.number;
-    q("done-number").textContent = t.number;
-    resetSeated();
-    q("vibe").textContent = t.vibe;
+  function tableNumber(a: MyAssignment) {
+    return a.table_number == null
+      ? "—"
+      : String(a.table_number).padStart(2, "0");
+  }
+
+  function renderAssigned(a: MyAssignment) {
+    const number = tableNumber(a);
+    q("number").textContent = number;
+    q("seated-number").textContent = number;
+    q("done-number").textContent = number;
+    q("vibe").textContent = (a.table_name || `Table ${number}`).toUpperCase();
+    const tagline = a.tagline?.length
+      ? a.tagline
+      : ["Good people.", "Good talk."];
     q("theme").replaceChildren(
-      document.createTextNode(t.theme[0]),
+      document.createTextNode(tagline[0] ?? ""),
       document.createElement("br"),
-      document.createTextNode(t.theme[1]),
+      document.createTextNode(tagline[1] ?? ""),
     );
-    q("reason").textContent = reason;
+    q("table-when").textContent = when();
+    q("table-when").hidden = !when();
+
+    const mates = a.tablemates;
+    const slots = [
+      ...root.querySelectorAll<HTMLElement>(
+        ".ta-seat:not(.ta-you):not(.ta-open)",
+      ),
+    ];
+    slots.forEach((seat, i) => {
+      const overflow = i === slots.length - 1 && mates.length > slots.length;
+      const mate = mates[i];
+      seat.hidden = !mate;
+      if (overflow) {
+        setText(seat, ".ta-avatar", `+${mates.length - i}`);
+        setText(seat, "small", `${mates.length - i} more`);
+      } else if (mate) {
+        setText(seat, ".ta-avatar", initials(mate.first_name));
+        setText(seat, "small", mate.first_name);
+      }
+    });
+    const open = a.seats ? Math.max(0, a.seats - mates.length - 1) : 0;
+    q("open-seat").hidden = open === 0;
+    q("open-text").textContent =
+      `${open} open seat${open === 1 ? "" : "s"} · saved for a walk-in`;
+    const names = mates.map((m) => m.first_name).join(", ");
     q("seat-description").setAttribute(
       "aria-label",
-      `Your assigned table ${t.number}, with ${t.names.join(", ")}, your seat, and one open seat. 12:30 to 1:15, Main hall`,
+      `Your table ${number}${names ? `, with ${names}` : ""}, and your seat${
+        open ? `, plus ${open} open seat${open === 1 ? "" : "s"}` : ""
+      }.${when() ? ` ${when()}.` : ""}`,
     );
-    root
-      .querySelectorAll(".ta-seat:not(.ta-you):not(.ta-open)")
-      .forEach((seat, i) => {
-        setText(seat, ".ta-avatar", t.initials[i]);
-        setText(seat, "small", t.names[i]);
-      });
+
+    q("reason").textContent = a.summary;
     q("people").replaceChildren(
-      ...t.people.map(([name, bio]) => {
+      ...mates.map((mate) => {
         const s = el("span");
-        s.append(el("b", {}, name), document.createTextNode(` / ${bio}`));
+        const about = [mate.role, mate.company].filter(Boolean).join(" · ");
+        s.append(
+          el("b", {}, mate.first_name),
+          document.createTextNode(` / ${about}`),
+        );
         return s;
       }),
     );
-    q("tags").replaceChildren(...t.tags.map((tag) => el("span", {}, tag)));
-    q("summary-goal").textContent = `Your goals: ${GOALS.filter((g) =>
-      submission.selected_goal_ids.includes(g.id),
-    )
-      .map((g) => g.label)
-      .join(", ")}`;
-    q("summary-offer").textContent = `Your focus: ${
-      GOALS.find((g) => g.id === focus)?.label ?? ""
-    }`;
+    const topics = a.topics?.length
+      ? a.topics
+      : [...new Set(mates.flatMap((m) => m.interests))].slice(0, 3);
+    q("tags").replaceChildren(...topics.map((tag) => el("span", {}, tag)));
+    q("table-summary").textContent = a.table_summary;
+    q("table-summary-tile").hidden =
+      !a.table_summary || a.table_summary === a.summary;
+    q("edit").hidden = !editable();
+
+    questions = [...new Set([...a.starters, ...a.table_starters])];
+    if (!questions.length) questions = FALLBACK_QUESTIONS;
+    questionIndex = 0;
+    resetQuestion();
+    renderSeated();
+  }
+
+  function revealTable() {
+    if (!me?.assignment) return;
+    renderAssigned(me.assignment);
     show("assigned");
   }
 
-  on(q("simulate"), "click", () => {
-    q("ready-message").textContent =
-      `The wait is over, ${identity().first}. We found your table.`;
-    q("wait-initial").hidden = true;
-    q("wait-ready").hidden = false;
-    q("demo-control").hidden = true;
-    q("reveal-table").focus();
-  });
   on(q("reveal-table"), "click", () => {
+    if (!me?.assignment) return;
     button("reveal-table").disabled = true;
     show("matching");
     window.clearTimeout(matchTimer);
-    matchTimer = window.setTimeout(pair, reduced() ? 0 : 800);
+    matchTimer = window.setTimeout(revealTable, reduced() ? 0 : 800);
   });
 
   // Check-in, ticket, and icebreakers
@@ -840,15 +1105,25 @@ export function initOnboarding(root: HTMLElement): () => void {
   }
 
   function openTicket() {
-    if (!assigned) return;
-    const person = identity();
-    q("ticket-number").textContent = assigned.number;
-    q("confirmed-name").textContent = person.first;
-    q("ticket-name").textContent = `${person.first} ${person.last}`;
-    q("ticket-role").textContent = [person.title, person.company]
+    const attendee = me?.attendee;
+    const a = me?.assignment;
+    if (!attendee || !a) return;
+    const [first, ...rest] = attendee.name.split(" ");
+    q("ticket-number").textContent = tableNumber(a);
+    q("confirmed-name").textContent = first;
+    q("ticket-name").textContent = [first, ...rest].join(" ");
+    q("ticket-role").textContent = [attendee.role, attendee.company]
       .filter(Boolean)
       .join(" · ");
-    q("ticket-role").hidden = !person.title && !person.company;
+    q("ticket-role").hidden = !attendee.role && !attendee.company;
+    q("when").textContent = when();
+    q("summary-goal").textContent = `Your goals: ${goals
+      .filter((g) => attendee.goals.includes(g.id))
+      .map((g) => g.label)
+      .join(", ")}`;
+    q("summary-offer").textContent = `Your focus: ${
+      goals.find((g) => g.id === attendee.focus_goal)?.label ?? ""
+    }`;
     show("confirmed");
   }
 
@@ -856,40 +1131,58 @@ export function initOnboarding(root: HTMLElement): () => void {
     return root.querySelector<HTMLElement>(".ta-you");
   }
 
-  function resetSeated() {
-    seatedAt = null;
-    q("seated").hidden = false;
-    q("seated-done").hidden = true;
+  function renderSeated() {
+    const seated = Boolean(me?.checked_in_at);
+    q("seated").hidden = seated;
+    q("seated-done").hidden = !seated;
     const seat = you();
     if (seat) {
-      seat.classList.remove("ta-is-seated");
-      setText(seat, "small", "You");
+      seat.classList.toggle("ta-is-seated", seated);
+      setText(seat, "small", seated ? "You · seated" : "You");
     }
-    q("seat-status").textContent = "Your seat is waiting";
+    q("seat-status").textContent = seated
+      ? "You’re here"
+      : "Your seat is waiting";
   }
 
-  on(q("seated"), "click", () => {
-    if (seatedAt || !assigned) return;
-    seatedAt = new Date().toISOString();
-    const seat = you();
-    if (seat) {
-      seat.classList.add("ta-is-seated");
-      setText(seat, "small", "You · seated");
+  on(q("seated"), "click", async () => {
+    if (busy || !me?.assignment || !token) return;
+    setBusy("seated", true);
+    try {
+      const status = await request<MyStatus>(
+        "/api/me/check-in",
+        {},
+        {
+          attendeeToken: token,
+        },
+      );
+      if (signal.aborted) return;
+      me = status;
+      renderSeated();
+      openTicket();
+      confetti();
+    } catch (error) {
+      if (!signal.aborted) q("seat-status").textContent = errorText(error);
+    } finally {
+      setBusy("seated", false);
     }
-    q("seat-status").textContent = "You’re here";
-    q("seated").hidden = true;
-    q("seated-done").hidden = false;
-    openTicket();
-    confetti();
   });
   on(q("seated-done"), "click", () => {
-    if (seatedAt && assigned) openTicket();
+    if (me?.checked_in_at) openTicket();
   });
 
+  function resetQuestion() {
+    questionRevealed = false;
+    q("question-text").textContent = "Break the ice.";
+    q("question-hint").textContent =
+      "Tap to turn over your table’s conversation card ↗";
+    q("question-actions").hidden = true;
+  }
+
   function reveal() {
-    if (!assigned) return;
+    if (!questions.length) return;
     questionRevealed = true;
-    q("question-text").textContent = assigned.questions[questionIndex];
+    q("question-text").textContent = questions[questionIndex];
     q("question-hint").textContent =
       "Go around the table. Start wherever you like.";
     q("question-actions").hidden = false;
@@ -903,29 +1196,15 @@ export function initOnboarding(root: HTMLElement): () => void {
     if (!questionRevealed) reveal();
   });
   on(q("another"), "click", () => {
-    if (!assigned) return;
-    questionIndex = (questionIndex + 1) % assigned.questions.length;
+    if (!questions.length) return;
+    questionIndex = (questionIndex + 1) % questions.length;
     reveal();
   });
-
-  const hook: Readonly<PrototypeHook> = Object.freeze({
-    goalDefinitions: GOALS.map((g) => ({ ...g })),
-    buildSubmission,
-    getLastSubmission: () =>
-      state.lastSubmission
-        ? (JSON.parse(
-            JSON.stringify(state.lastSubmission),
-          ) as OnboardingSubmission)
-        : null,
-    getCheckIn: () =>
-      seatedAt && assigned ? { table: assigned.number, seatedAt } : null,
-  });
-  window.tabletalkPrototype = hook;
 
   // Header: logo, event label, and menu
 
   function updateBrand(name: Screen) {
-    const can = Boolean(BACK[name]);
+    const can = Boolean(backFrom(name));
     q("brand").setAttribute("aria-disabled", String(!can));
     q("brand").setAttribute(
       "aria-label",
@@ -934,10 +1213,10 @@ export function initOnboarding(root: HTMLElement): () => void {
   }
 
   function goBack() {
-    const prev = BACK[current];
+    const prev = backFrom(current);
     if (!prev) return;
     closeNav();
-    if (prev === "waiting") resetWaitingRoom();
+    if (prev === "waiting") renderWaiting();
     show(prev, { back: true });
   }
   on(q("brand"), "click", goBack);
@@ -953,7 +1232,7 @@ export function initOnboarding(root: HTMLElement): () => void {
     q("nav-menu").hidden = false;
     q("nav-button").setAttribute("aria-expanded", "true");
     q("nav-button").setAttribute("aria-label", "Close menu");
-    q("nav-edit").focus();
+    (q("nav-edit").hidden ? q("nav-restart") : q("nav-edit")).focus();
   }
 
   function closeNav(returnFocus = false) {
@@ -968,21 +1247,22 @@ export function initOnboarding(root: HTMLElement): () => void {
     if (q("nav-menu").hidden) openNav();
     else closeNav(true);
   });
-  on(q("nav-edit"), "click", () => {
-    window.clearTimeout(matchTimer);
-    closeNav();
-    resetSeated();
-    show("about", { back: true });
-  });
+  on(q("nav-edit"), "click", editAnswers);
 
-  function resetDemo() {
+  function resetForm() {
     ["first-name", "last-name", "title", "company", "custom-interest"].forEach(
       (id) => {
         input(id).value = "";
         input(id).removeAttribute("aria-invalid");
       },
     );
-    ["first-error", "last-error"].forEach((id) => {
+    [
+      "first-error",
+      "last-error",
+      "title-error",
+      "interest-error",
+      "submit-error",
+    ].forEach((id) => {
       q(id).hidden = true;
     });
     [...q("interests").children].forEach((choice) => {
@@ -995,7 +1275,6 @@ export function initOnboarding(root: HTMLElement): () => void {
     state.selectedGoals.clear();
     state.explicitFocus = null;
     state.answers = {};
-    state.lastSubmission = null;
     goalViews.forEach((v) => {
       v.input.value = "";
       v.error.hidden = true;
@@ -1003,19 +1282,34 @@ export function initOnboarding(root: HTMLElement): () => void {
     });
     q("goal-error").hidden = true;
     renderGoals();
-    assigned = null;
+    questions = [];
     questionIndex = 0;
-    questionRevealed = false;
-    resetSeated();
-    q("question-text").textContent = "Break the ice.";
-    q("question-hint").textContent =
-      "Tap to turn over your table’s conversation card ↗";
-    q("question-actions").hidden = true;
-    show("about", { back: true });
+    resetQuestion();
   }
+
+  /** Put a saved enrollment back into the form, so editing starts from it. */
+  function fillForm(status: MyStatus) {
+    resetForm();
+    const { attendee } = status;
+    const [first, ...rest] = attendee.name.split(" ");
+    input("first-name").value = first ?? "";
+    input("last-name").value = rest.join(" ");
+    input("title").value = attendee.role;
+    input("company").value = attendee.company ?? "";
+    attendee.interests.forEach((i) => addInterest(i, { select: true }));
+    attendee.goals.forEach((g) => state.selectedGoals.add(g));
+    state.explicitFocus = attendee.focus_goal ?? null;
+    state.answers = { ...(attendee.goal_answers ?? {}) };
+    renderGoals();
+  }
+
   on(q("nav-restart"), "click", () => {
     closeNav();
-    resetDemo();
+    window.clearTimeout(matchTimer);
+    forgetToken();
+    resetForm();
+    applyEventDetails();
+    show("about", { back: true });
   });
 
   on<KeyboardEvent>(root, "keydown", (e) => {
@@ -1028,11 +1322,34 @@ export function initOnboarding(root: HTMLElement): () => void {
     if (!q("nav").contains(e.target as Node)) closeNav();
   });
 
+  // Start: show the form right away, then load the event and any saved enrollment.
+
   show("about", { focus: false });
+  applyEventDetails();
+  void (async () => {
+    await loadConference();
+    if (!token || signal.aborted) return;
+    let status: MyStatus | null = null;
+    try {
+      status = await refresh();
+    } catch {
+      return;
+    }
+    if (!status || signal.aborted) return;
+    fillForm(status);
+    applyEventDetails();
+    if (status.assignment) {
+      renderAssigned(status.assignment);
+      show("assigned", { focus: false });
+    } else {
+      renderWaiting();
+      show("waiting", { focus: false });
+    }
+  })();
 
   return () => {
     controller.abort();
     window.clearTimeout(matchTimer);
-    if (window.tabletalkPrototype === hook) delete window.tabletalkPrototype;
+    window.clearInterval(pollTimer);
   };
 }

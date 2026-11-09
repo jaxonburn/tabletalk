@@ -230,7 +230,9 @@ validation as a real enrollment.
 | `POST` | `/api/host/runs/{id}/publish` | host | Make a run visible to attendees |
 | `POST` | `/api/host/demo/attendees` | host | Load the fixture set or generate N personas with an LLM (`seed`, `themes`) |
 | `POST` | `/api/enrollments` | attendee | Submit me for lunch (rejected after cutoff or at capacity) |
-| `GET` | `/api/me/assignment` | attendee | Table, tablemates, summary, starters (after publish) |
+| `GET` | `/api/me` | attendee | Status and, after publish, table, tablemates, summary, starters |
+| `PUT` | `/api/me` | attendee | Edit answers while sign-ups are open |
+| `POST` | `/api/me/check-in` | attendee | "I'm seated" at a published table |
 | `POST` | `/runs` (internal matcher) | API only | Run the pipeline in §3 |
 
 ### Cutoff and scheduling
@@ -589,3 +591,28 @@ Each later step makes that demo richer.
   actual Elasticsearch queries and fails without the fix.
 - **Spend:** benchmarking, experiments and verification used roughly $2 of the
   $50 budget, estimated from call counts at list price.
+
+## New attendee UI wired to the backend
+
+The teammates' onboarding UI (`apps/web/src/onboarding/`) is now the attendee app
+at `/`. The original page moved to `/classic`.
+
+- **One set of goals.** The UI uses the API's Learn / Share / Connect goals.
+  `GoalPrompt` gained `label` and `short`, and the cards show the server's copy.
+- **New contract fields.** `Enrollment.company` (optional), `EventConfig.lunch_time`
+  and `location` (host-editable), and `LunchGroup.name`, `tagline` (two lines) and
+  `topics`. `MyAssignment` adds those plus seats, lunch time and location.
+- **Table identity.** Templates name each table after what it shares ("The
+  Kubernetes table") and pick a tagline from the goal mix. Names are distinct
+  within a plan. With AI on, `table-notes-v2` also writes `table_name` and
+  `tagline`; weak, duplicate, or out-of-table values fall back to the template.
+- **Edit and check-in.** `PUT /api/me` while open; `POST /api/me/check-in` after
+  publish, stored as an event document so no new index or privilege is needed.
+  The host sees seated counts per table and a marker per person.
+- **Seat diagram.** It shows up to four tablemates (a "+N" seat beyond that) and
+  the open seats left at the table, hiding what doesn't apply.
+- **Verified.** Locally, through the browser: enroll → edit → reload/resume → host
+  cutoff and venue → AI draft → publish → reveal → check-in → conversation card →
+  host sees the check-in. The smoke test covers edits and check-in. On Elastic
+  Cloud (Serverless): the 12 seed profiles were uploaded, and one draft run (not
+  published) used `bm25+vectors+tags` with AI notes.

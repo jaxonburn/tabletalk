@@ -5,18 +5,24 @@ from tabletalk_shared.models import Attendee, Enrollment, Goal
 # Each prompt includes an example hint to encourage specific, useful answers.
 GOAL_PROMPTS: dict[Goal, dict[str, str]] = {
     "Learn": {
+        "label": "Learn something",
+        "short": "Questions & fresh ideas",
         "question": "What questions do you have about the topics you want to learn?",
         "example_hint": (
             "How do you tune Kubernetes autoscaling for a service with unpredictable traffic?"
         ),
     },
     "Share something I've learned": {
+        "label": "Share my expertise",
+        "short": "Put your experience to use",
         "question": "What have you learned that you would like to share?",
         "example_hint": (
             "I've tuned Kubernetes autoscaling for a service with unpredictable traffic."
         ),
     },
     "Meet connections": {
+        "label": "Meet new people",
+        "short": "Good company, no pitch",
         "question": "What topics would you be happy to discuss with new people?",
         "example_hint": (
             "I'd enjoy comparing platform engineering lessons and hearing how other teams work."

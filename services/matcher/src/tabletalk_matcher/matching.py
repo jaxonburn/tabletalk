@@ -18,9 +18,11 @@ from tabletalk_shared.models import (
 from tabletalk_matcher.affinity import Affinity, learn_text
 from tabletalk_matcher.narratives import (
     member_note,
+    name_tables,
     table_reasons,
     table_starters,
     table_summary,
+    table_topics,
     teaching_overlap,
 )
 from tabletalk_matcher.optimizer import PairScore, assign_tables
@@ -55,8 +57,9 @@ def build_plan(
         validate_seating(sorted(by_id), layout, seating, tables)
 
         groups = []
-        for table, member_ids in zip(layout, seating, strict=True):
-            members = [by_id[member_id] for member_id in member_ids]
+        tables_members = [[by_id[member_id] for member_id in ids] for ids in seating]
+        identities = name_tables(tables_members)
+        for table, members, (name, tagline) in zip(layout, tables_members, identities, strict=True):
             groups.append(
                 LunchGroup(
                     id=f"table-{table.number}",
@@ -67,6 +70,9 @@ def build_plan(
                     starters=table_starters(members),
                     member_notes=[member_note(member, members) for member in members],
                     narrative_source="template",
+                    name=name,
+                    tagline=tagline,
+                    topics=table_topics(members),
                 )
             )
         metrics = measure(groups, affinity, seed)

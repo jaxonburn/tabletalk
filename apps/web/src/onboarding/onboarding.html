@@ -17,7 +17,7 @@
             <polygon points="58.3,28 72,41.7 55.5,44.5" />
           </g></svg
         ><span class="ta-wordmark">TableTalk</span></button
-      ><span class="ta-event" id="ta-event">SUMMIT / LUNCH</span>
+      ><span class="ta-event" id="ta-event">LUNCH</span>
       <div class="ta-nav" id="ta-nav" hidden>
         <button
           type="button"
@@ -31,7 +31,8 @@
         </button>
         <div id="ta-nav-menu" class="ta-nav-menu" hidden>
           <div class="ta-nav-event">
-            <b>SUMMIT / LUNCH</b><span>12:30–1:15 · Main hall</span>
+            <b id="ta-nav-event-name">LUNCH</b
+            ><span id="ta-nav-event-when">12:30–1:15 · Main hall</span>
           </div>
           <button
             type="button"
@@ -74,7 +75,7 @@
             >
               <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
               <path d="M3 3v5h5" /></svg
-            >Restart demo
+            >Forget me on this device
           </button>
         </div>
       </div>
@@ -101,6 +102,7 @@
       <p class="ta-body">
         A few details for your place card<br />and the people you’ll meet.
       </p>
+      <p id="ta-closed-notice" class="ta-notice" role="status" hidden></p>
       <form id="ta-about-form" class="ta-bento" novalidate>
         <div class="ta-tile ta-field">
           <label class="ta-label" for="ta-first-name"
@@ -124,7 +126,7 @@
             name="family-name"
             autocomplete="family-name"
             placeholder="e.g. Doe"
-            maxlength="60"
+            maxlength="39"
             required
             aria-describedby="ta-last-error"
           />
@@ -132,14 +134,17 @@
         </div>
         <div class="ta-tile ta-field ta-span-2">
           <label class="ta-label" for="ta-title"
-            >Title <span class="ta-optional">(optional)</span></label
+            >Title <span aria-hidden="true">*</span></label
           ><input
             id="ta-title"
             name="organization-title"
             autocomplete="organization-title"
-            placeholder="Founder, designer, professional question-asker…"
+            placeholder="Platform engineer, SRE, professional question-asker…"
             maxlength="80"
+            required
+            aria-describedby="ta-title-error"
           />
+          <p id="ta-title-error" class="ta-field-error" hidden></p>
         </div>
         <div class="ta-tile ta-field ta-span-2">
           <label class="ta-label" for="ta-company"
@@ -193,9 +198,7 @@
         <div class="ta-tile ta-span-2 ta-interest-tile">
           <fieldset class="ta-fieldset">
             <legend class="ta-label">What are you interested in?</legend>
-            <p class="ta-field-hint" id="ta-interest-hint">
-              Tap as many as you like.
-            </p>
+            <p class="ta-field-hint" id="ta-interest-hint">Tap up to 8.</p>
             <div
               id="ta-interests"
               class="ta-interest-list"
@@ -225,7 +228,8 @@
           ></p>
         </div>
       </div>
-      <p class="ta-note">Optional. Skip it if nothing fits.</p>
+      <p id="ta-interest-error" class="ta-field-error" role="alert" hidden></p>
+      <p class="ta-note">Pick at least one, or add your own.</p>
       <button
         type="button"
         id="ta-topics-next"
@@ -281,12 +285,14 @@
           Pick at least one goal to get started.
         </p>
         <p id="ta-goals-error" class="ta-visually-hidden" role="alert"></p>
+        <p id="ta-submit-error" class="ta-field-error" role="alert" hidden></p>
         <button
           type="button"
           id="ta-submit"
           class="ta-primary cursor-interaction"
         >
-          Save my spot<svg
+          <span id="ta-submit-label">Save my spot</span
+          ><svg
             class="ta-arrow"
             xmlns="http://www.w3.org/2000/svg"
             width="18"
@@ -420,8 +426,11 @@
           role="status"
         >
           <div class="ta-tile ta-span-2 ta-time-tile">
-            <span class="ta-time-label">TABLE MATCHES OPEN AT</span
-            ><strong class="ta-reveal-time">12:15<span> PM</span></strong>
+            <span class="ta-time-label" id="ta-time-label"
+              >TABLE MATCHES OPEN AT</span
+            ><strong class="ta-reveal-time" id="ta-reveal-time"
+              >12:15<span> PM</span></strong
+            >
           </div>
           <div class="ta-tile ta-mini">
             <svg
@@ -441,7 +450,7 @@
                 d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"
               />
             </svg>
-            <p class="ta-body">
+            <p class="ta-body" id="ta-wait-when">
               We will match you with a table at 12:15.<br />Stay tuned!
             </p>
           </div>
@@ -528,9 +537,9 @@
         Edit my details &amp; answers
       </button>
       <div id="ta-demo-control" class="ta-demo-control">
-        <span>DEMO SHORTCUT</span
-        ><button type="button" id="ta-simulate" class="cursor-interaction">
-          Simulate the 12:15 match<svg
+        <span id="ta-check-status" role="status">WE’LL CHECK FOR YOU</span
+        ><button type="button" id="ta-check-now" class="cursor-interaction">
+          Check for my table now<svg
             class="ta-arrow"
             xmlns="http://www.w3.org/2000/svg"
             width="18"
@@ -571,7 +580,7 @@
       <p class="ta-body">
         Your goals. What you bring.<br />A few people worth meeting.
       </p>
-      <p class="ta-note" role="status">Preparing your sample table…</p>
+      <p class="ta-note" role="status">Preparing your table…</p>
     </section>
 
     <section id="ta-assigned" aria-labelledby="ta-assigned-heading" hidden>
@@ -597,7 +606,9 @@
               <span>TABLE</span><strong id="ta-number">08</strong>
               <div class="ta-table-foot">
                 <small id="ta-theme">Small bets.<br />Big ideas.</small
-                ><span class="ta-table-when">12:30–1:15 · Main hall</span>
+                ><span class="ta-table-when" id="ta-table-when"
+                  >12:30–1:15 · Main hall</span
+                >
               </div>
             </div>
             <div class="ta-seat ta-you">
@@ -634,9 +645,11 @@
             <div class="ta-seat ta-s3">
               <span class="ta-avatar">SN</span><small>Sam</small>
             </div>
-            <div class="ta-seat ta-open">
+            <div class="ta-seat ta-open" id="ta-open-seat">
               <span class="ta-avatar">+</span
-              ><small>1 open seat · saved for a walk-in</small>
+              ><small id="ta-open-text"
+                >1 open seat · saved for a walk-in</small
+              >
             </div>
           </div>
           <div class="ta-checkin">
@@ -695,7 +708,7 @@
           </div>
         </div>
         <div class="ta-tile ta-span-2">
-          <p class="ta-fit-label">WHY THIS MIX</p>
+          <p class="ta-fit-label">WHY YOU’RE HERE</p>
           <p id="ta-reason" class="ta-reason">
             Jordan brings product experience. Maya and Ari are building
             early-stage projects.
@@ -708,6 +721,10 @@
         <div class="ta-tile">
           <p class="ta-fit-label">TALK ABOUT</p>
           <div id="ta-tags" class="ta-tags"></div>
+        </div>
+        <div class="ta-tile ta-span-2" id="ta-table-summary-tile">
+          <p class="ta-fit-label">THE WHOLE TABLE</p>
+          <p id="ta-table-summary" class="ta-reason"></p>
         </div>
       </div>
       <button type="button" id="ta-edit" class="ta-back cursor-interaction">
@@ -750,7 +767,7 @@
             <path d="M12 6v6l4 2" />
           </svg>
           <div>
-            <b>12:30–1:15 · Main hall</b
+            <b id="ta-when">12:30–1:15 · Main hall</b
             ><span
               >You’re checked in. Say hi, then turn over the card below.</span
             >
@@ -789,6 +806,9 @@
       </details>
     </section>
 
-    <footer class="ta-footer">INTERACTIVE CONCEPT · SAMPLE MATCHING</footer>
+    <footer class="ta-footer">
+      TABLETALK · MATCHED WITH ELASTICSEARCH ·
+      <a href="/host" class="ta-footer-link">HOST</a>
+    </footer>
   </main>
 </div>

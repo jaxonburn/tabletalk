@@ -21,13 +21,14 @@ from tabletalk_shared.llm import (
 from tabletalk_shared.models import Attendee, LunchGroup, MatchPlan, MemberNote
 
 from tabletalk_matcher.affinity import CONNECT, LEARN, SHARE
-from tabletalk_matcher.narratives import first_name
+from tabletalk_matcher.narratives import MAX_TABLE_NAME, first_name
 
 tracer = trace.get_tracer(__name__)
 
-PROMPT_VERSION = "table-notes-v1"
+PROMPT_VERSION = "table-notes-v2"
 MAX_SUMMARY = 300
 MAX_STARTER = 200
+MAX_TAGLINE_LINE = 28
 
 SYSTEM_PROMPT = """\
 You write warm, specific lunch-table introductions for attendees at a tech conference.
@@ -38,6 +39,10 @@ Everything you write is shown directly to attendees."""
 
 USER_INSTRUCTIONS = """\
 Write notes for this lunch table.
+- table_name: a short, friendly name for the table built from what it shares, such as
+  "The Kubernetes table" or "The Platform builders' table" (under 36 characters, no names).
+- tagline: exactly 2 very short lines that set the tone, like ["Small bets.", "Big ideas."]
+  (each under 24 characters).
 - table_summary: 1-2 sentences on what this table has in common or can trade.
 - conversation_starters: exactly 3 open questions the whole table could discuss.
 - members: one entry for EVERY attendee_id below, each with
@@ -48,6 +53,8 @@ Keep each summary under 280 characters and each starter under 180 characters."""
 
 NARRATIVE_SCHEMA = strict_object(
     {
+        "table_name": STRING,
+        "tagline": STRING_LIST,
         "table_summary": STRING,
         "conversation_starters": STRING_LIST,
         "members": {
@@ -69,6 +76,8 @@ class TableNotes:
     summary: str
     starters: list[str]
     member_notes: list[MemberNote]
+    name: str = ""
+    tagline: tuple[str, ...] = ()
 
 
 def table_payload(group: LunchGroup) -> str:
@@ -164,9 +173,31 @@ def parse_notes(data: dict[str, Any], group: LunchGroup, outsider_names: set[str
             )
         )
 
-    result = TableNotes(summary=clip(summary, MAX_SUMMARY), starters=starters, member_notes=notes)
+    result = TableNotes(
+        summary=clip(summary, MAX_SUMMARY),
+        starters=starters,
+        member_notes=notes,
+        name=_table_name(data.get("table_name"), group),
+        tagline=_tagline(data.get("tagline"), group),
+    )
     _reject_outsiders(result, group.members, outsider_names)
     return result
+
+
+def _table_name(value: Any, group: LunchGroup) -> str:
+    # A weak name isn't worth discarding good notes for; keep the template's instead.
+    if not isinstance(value, str) or not value.strip() or len(value.strip()) > MAX_TABLE_NAME:
+        return group.name
+    return " ".join(value.split())
+
+
+def _tagline(value: Any, group: LunchGroup) -> tuple[str, ...]:
+    lines = [
+        " ".join(line.split()) for line in value or [] if isinstance(line, str) and line.strip()
+    ]
+    if len(lines) < 2 or any(len(line) > MAX_TAGLINE_LINE for line in lines[:2]):
+        return tuple(group.tagline)
+    return tuple(lines[:2])
 
 
 def _reject_outsiders(notes: TableNotes, members: list[Attendee], outsiders: set[str]) -> None:
@@ -176,7 +207,7 @@ def _reject_outsiders(notes: TableNotes, members: list[Attendee], outsiders: set
     if not forbidden:
         return
     pattern = re.compile(r"\b(" + "|".join(map(re.escape, sorted(forbidden))) + r")\b")
-    texts = [notes.summary, *notes.starters]
+    texts = [notes.summary, *notes.starters, notes.name, *notes.tagline]
     for note in notes.member_notes:
         texts += [note.summary, *note.starters]
     if any(pattern.search(text) for text in texts):
@@ -227,15 +258,23 @@ async def narrate_plan(
         for task in pending:
             task.cancel()
         groups = []
+        # Template names are already distinct; an AI name is used only if it stays that way.
+        names = {group.name for group in plan.groups}
         for group, task in zip(plan.groups, tasks, strict=True):
             if task in done and task.exception() is None:
                 notes = task.result()
+                name = group.name
+                if notes.name and notes.name not in names:
+                    names.add(notes.name)
+                    name = notes.name
                 group = group.model_copy(
                     update={
                         "summary": notes.summary,
                         "starters": notes.starters,
                         "member_notes": notes.member_notes,
                         "narrative_source": "llm",
+                        "name": name,
+                        "tagline": list(notes.tagline) or group.tagline,
                     }
                 )
             groups.append(group)

@@ -118,18 +118,95 @@ class TestAttendeeToken:
         ]
         my_note = next(n for n in group.member_notes if n.attendee_id == me.id)
         assert assignment["summary"] == my_note.summary
-        # Tablemates are first name, role, and interests only. Learn questions may be
-        # quoted as conversation starters, but Share/Connect answers never are.
+        # Tablemates are first name, role, company, and interests only. Learn questions may
+        # be quoted as conversation starters, but Share/Connect answers never are.
         assert {key for mate in assignment["tablemates"] for key in mate} == {
             "first_name",
             "role",
+            "company",
             "interests",
         }
+        assert assignment["seats"] == next(
+            t.seats for t in EventConfig().tables if t.number == group.table_number
+        )
+        assert assignment["location"] == EventConfig().location
+        assert body["checked_in_at"] is None
         for other in group.members[1:]:
             for goal, answer in other.goal_answers.items():
                 if goal != "Learn":
                     assert answer not in response.text
             assert other.id not in response.text
+
+
+class TestEditAndCheckIn:
+    def test_attendee_can_edit_while_open_and_keeps_their_id(
+        self, api: Api, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        client, _ = api
+        me = people(1)[0]
+        monkeypatch.setattr(main, "find_attendee_by_token", AsyncMock(return_value=me))
+        changed = onboarding(name="Alex Chen", company="Adobe", interests=["observability"])
+        response = client.put("/api/me", json=changed, headers={"X-Attendee-Token": "t"})
+        assert response.status_code == 200
+        body = response.json()
+        assert body["attendee"]["id"] == me.id
+        assert body["attendee"]["company"] == "Adobe"
+        saved = getattr(main, "update_attendee")  # noqa: B009 - patched by the api fixture
+        assert saved.await_args.args[1].id == me.id
+        assert saved.await_args.args[1].interests == ["observability"]
+
+    def test_editing_after_publishing_is_refused(
+        self, api: Api, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        client, _ = api
+        run = run_for(people(4))
+        monkeypatch.setattr(main, "read_plan", AsyncMock(return_value=run.plan))
+        monkeypatch.setattr(
+            main, "find_attendee_by_token", AsyncMock(return_value=run.plan.groups[0].members[0])
+        )
+        response = client.put("/api/me", json=onboarding(), headers={"X-Attendee-Token": "t"})
+        assert response.status_code == 409
+        assert getattr(main, "update_attendee").await_count == 0  # noqa: B009
+
+    def test_edit_requires_a_token(self, api: Api) -> None:
+        client, _ = api
+        assert client.put("/api/me", json=onboarding()).status_code == 401
+
+    def test_check_in_needs_a_published_table(
+        self, api: Api, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        client, _ = api
+        monkeypatch.setattr(main, "find_attendee_by_token", AsyncMock(return_value=people(1)[0]))
+        response = client.post("/api/me/check-in", headers={"X-Attendee-Token": "t"})
+        assert response.status_code == 409
+
+    def test_check_in_is_recorded_and_returned(
+        self, api: Api, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        client, _ = api
+        run = run_for(people(4))
+        me = run.plan.groups[0].members[0]
+        monkeypatch.setattr(main, "read_plan", AsyncMock(return_value=run.plan))
+        monkeypatch.setattr(main, "find_attendee_by_token", AsyncMock(return_value=me))
+        monkeypatch.setattr(main, "read_check_in", AsyncMock(return_value=NOW))
+        response = client.post("/api/me/check-in", headers={"X-Attendee-Token": "t"})
+        assert response.status_code == 200
+        assert response.json()["checked_in_at"].startswith("2026-11-10T18:40")
+        save = getattr(main, "save_check_in")  # noqa: B009 - patched by the api fixture
+        assert save.await_args.args[1] == me.id
+
+    def test_host_sees_check_ins(self, api: Api, monkeypatch: pytest.MonkeyPatch) -> None:
+        client, _ = api
+        monkeypatch.setattr(main, "list_runs", AsyncMock(return_value=[]))
+        monkeypatch.setattr(main, "list_check_ins", AsyncMock(return_value={"a1": NOW}))
+        assert "a1" in client.get("/api/host/state").json()["check_ins"]
+
+    def test_goal_prompts_include_labels_for_the_onboarding_cards(self, api: Api) -> None:
+        client, _ = api
+        body = client.get("/api/conference").json()
+        assert body["goal_prompts"]["Learn"]["label"]
+        assert body["goal_prompts"]["Meet connections"]["short"]
+        assert body["location"] == EventConfig().location
 
 
 class TestAutomationSettings:

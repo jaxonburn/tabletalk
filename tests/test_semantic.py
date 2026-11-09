@@ -135,25 +135,52 @@ class TestTags:
 
 
 class FakeES:
-    """Just enough of AsyncElasticsearch for enrichment."""
+    """Just enough of AsyncElasticsearch for enrichment, with optimistic concurrency."""
 
-    def __init__(self, stored: dict[str, dict[str, Any]]) -> None:
-        self.stored = stored
+    def __init__(
+        self, attendees: list[Attendee], stored: dict[str, dict[str, Any]] | None = None
+    ) -> None:
+        self.docs = {a.id: {**a.model_dump(), **(stored or {}).get(a.id, {})} for a in attendees}
+        self.seq = dict.fromkeys(self.docs, 1)
         self.bulk_calls: list[list[dict[str, Any]]] = []
+        self.before_bulk: Any = None
+
+    def edit(self, attendee_id: str, **changes: Any) -> None:
+        """Simulate PUT /api/me: replace the document, dropping enrichment."""
+        base = Attendee.model_validate(
+            {k: v for k, v in self.docs[attendee_id].items() if k in Attendee.model_fields}
+        )
+        self.docs[attendee_id] = base.model_copy(update={**changes, "topic_tags": []}).model_dump()
+        self.seq[attendee_id] += 1
 
     async def search(self, **kwargs: Any) -> dict[str, Any]:
         # Like Elasticsearch 9, vectors are only returned when explicitly requested.
         assert kwargs["source"]["exclude_vectors"] is False
+        assert kwargs["seq_no_primary_term"] is True
         ids = kwargs["query"]["terms"]["id"]
-        return {
-            "hits": {
-                "hits": [{"_id": i, "_source": self.stored[i]} for i in ids if i in self.stored]
-            }
-        }
+        hits = [
+            {"_id": i, "_source": dict(self.docs[i]), "_seq_no": self.seq[i], "_primary_term": 1}
+            for i in ids
+            if i in self.docs
+        ]
+        return {"hits": {"hits": hits}}
 
     async def bulk(self, **kwargs: Any) -> dict[str, Any]:
-        self.bulk_calls.append(kwargs["operations"])
-        return {"errors": False}
+        if self.before_bulk:
+            self.before_bulk()
+        operations = kwargs["operations"]
+        self.bulk_calls.append(operations)
+        items = []
+        for action, body in zip(operations[::2], operations[1::2], strict=True):
+            update = action["update"]
+            attendee_id = update["_id"]
+            if update["if_seq_no"] != self.seq[attendee_id]:
+                items.append({"update": {"_id": attendee_id, "status": 409, "error": {}}})
+                continue
+            self.docs[attendee_id].update(body["doc"])
+            self.seq[attendee_id] += 1
+            items.append({"update": {"_id": attendee_id, "status": 200}})
+        return {"errors": any("error" in i["update"] for i in items), "items": items}
 
 
 class FakeEmbedder:
@@ -187,7 +214,7 @@ class FakeTagger:
 class TestEnrichment:
     async def test_backfills_vectors_and_tags_then_reuses_them(self) -> None:
         group = people(4)
-        es = FakeES({})
+        es = FakeES(group)
         embedder = FakeEmbedder()
         enriched, result = await enrich(
             Mock(spec=AsyncElasticsearch, search=es.search, bulk=es.bulk),
@@ -202,11 +229,8 @@ class TestEnrichment:
         docs = es.bulk_calls[0][1::2]
         assert all(doc["doc"]["embedding_model"] == "emb-test" for doc in docs)
 
-        stored = {
-            op["update"]["_id"]: doc["doc"]
-            for op, doc in zip(es.bulk_calls[0][::2], es.bulk_calls[0][1::2], strict=True)
-        }
-        cached = FakeES(stored)
+        cached = es
+        cached.bulk_calls = []
         again = FakeEmbedder()
         _, second = await enrich(
             Mock(spec=AsyncElasticsearch, search=cached.search, bulk=cached.bulk),
@@ -224,7 +248,7 @@ class TestEnrichment:
 
     async def test_missing_vectors_are_not_reported_as_vector_scoring(self) -> None:
         stored = {a.id: {"embedding_model": "emb-test"} for a in people(3)}
-        es = FakeES(stored)
+        es = FakeES(people(3), stored)
         _, result = await enrich(
             Mock(spec=AsyncElasticsearch, search=es.search, bulk=es.bulk),
             people(3),
@@ -233,8 +257,38 @@ class TestEnrichment:
         )
         assert result.vectors == {} and result.retrieval == "bm25"
 
+    async def test_profiles_edited_before_enrichment_are_skipped(self) -> None:
+        group = people(3)
+        es = FakeES(group)
+        es.edit(group[0].id, interests=["gardening"])
+        embedder = FakeEmbedder()
+        _, result = await enrich(
+            Mock(spec=AsyncElasticsearch, search=es.search, bulk=es.bulk),
+            group,
+            embedder=embedder,
+            llm=FakeTagger(),
+        )
+        written = {op["update"]["_id"] for op in es.bulk_calls[0][::2]}
+        assert group[0].id not in written and written == {a.id for a in group[1:]}
+        assert group[0].id not in result.vectors and group[0].id not in result.tags
+        assert "embedding_model" not in es.docs[group[0].id]
+
+    async def test_an_edit_during_enrichment_rejects_the_stale_write(self) -> None:
+        group = people(3)
+        es = FakeES(group)
+        es.before_bulk = lambda: es.edit(group[0].id, interests=["gardening"])
+        await enrich(
+            Mock(spec=AsyncElasticsearch, search=es.search, bulk=es.bulk),
+            group,
+            embedder=FakeEmbedder(),
+            llm=FakeTagger(),
+        )
+        assert "embedding_model" not in es.docs[group[0].id]
+        assert es.docs[group[0].id]["topic_tags"] == []
+        assert es.docs[group[1].id]["embedding_model"] == "emb-test"
+
     async def test_provider_failures_fall_back_to_keywords(self) -> None:
-        es = FakeES({})
+        es = FakeES(people(3))
         _, result = await enrich(
             Mock(spec=AsyncElasticsearch, search=es.search, bulk=es.bulk),
             people(3),

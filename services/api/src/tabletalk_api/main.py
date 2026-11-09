@@ -36,6 +36,7 @@ from tabletalk_shared.models import (
     Judgement,
     JudgeRequest,
     LLMStatus,
+    LunchGroup,
     MatchPlan,
     MatchRun,
     MyAssignment,
@@ -51,17 +52,21 @@ from tabletalk_shared.storage import (
     ensure_indices,
     find_attendee_by_token,
     list_attendees,
+    list_check_ins,
     list_runs,
     read_auto_state,
+    read_check_in,
     read_event,
     read_plan,
     read_run,
     save_auto_state,
+    save_check_in,
     save_event,
     save_judgement,
     save_plan,
     save_run,
     save_token,
+    update_attendee,
     validate_capacity,
 )
 from tabletalk_shared.telemetry import configure_telemetry, register_storage_errors
@@ -115,6 +120,7 @@ dashboard_metrics = DashboardMetrics(meter)
 enrollment_counter = meter.create_counter("tabletalk.enrollments")
 run_counter = meter.create_counter("tabletalk.matching.runs")
 publish_counter = meter.create_counter("tabletalk.matching.published")
+check_in_counter = meter.create_counter("tabletalk.check_ins")
 tracer = trace.get_tracer(__name__)
 
 
@@ -187,6 +193,8 @@ async def conference(services: Dependencies) -> ConferenceState:
         enrollment_closes_at=event.enrollment_closes_at,
         capacity=event.capacity,
         goal_prompts={goal: GoalPrompt(**prompt) for goal, prompt in GOAL_PROMPTS.items()},
+        lunch_time=event.lunch_time,
+        location=event.location,
     )
 
 
@@ -230,29 +238,37 @@ def first_name(attendee: Attendee) -> str:
     return attendee.name.split()[0]
 
 
-@app.get("/api/me", response_model=MyStatus)
-async def me(
-    services: Dependencies,
-    x_attendee_token: Annotated[str | None, Header()] = None,
-) -> MyStatus:
-    """An attendee's own enrollment and, once published, their table."""
-    attendee = None
-    if x_attendee_token:
-        attendee = await find_attendee_by_token(services.elasticsearch, x_attendee_token)
+AttendeeToken = Annotated[str | None, Header(alias="X-Attendee-Token")]
+
+
+async def current_attendee(services: Services, token: str | None) -> Attendee:
+    attendee = await find_attendee_by_token(services.elasticsearch, token) if token else None
     if attendee is None:
         raise HTTPException(401, "We couldn't find your enrollment on this device.")
-    event, plan = await asyncio.gather(
-        read_event(services.elasticsearch), read_plan(services.elasticsearch)
+    return attendee
+
+
+def my_group(plan: MatchPlan | None, attendee_id: str) -> LunchGroup | None:
+    groups = plan.groups if plan else []
+    return next((g for g in groups if any(m.id == attendee_id for m in g.members)), None)
+
+
+async def my_status(services: Services, attendee: Attendee) -> MyStatus:
+    event, plan, checked_in_at = await asyncio.gather(
+        read_event(services.elasticsearch),
+        read_plan(services.elasticsearch),
+        read_check_in(services.elasticsearch, attendee.id),
     )
     assignment = None
-    groups = plan.groups if plan else []
-    group = next((g for g in groups if any(m.id == attendee.id for m in g.members)), None)
-    if group is not None:
+    if (group := my_group(plan, attendee.id)) is not None:
         note = next((n for n in group.member_notes if n.attendee_id == attendee.id), None)
+        seats = {table.number: table.seats for table in event.tables}
         assignment = MyAssignment(
             table_number=group.table_number,
             tablemates=[
-                Tablemate(first_name=first_name(m), role=m.role, interests=m.interests)
+                Tablemate(
+                    first_name=first_name(m), role=m.role, company=m.company, interests=m.interests
+                )
                 for m in group.members
                 if m.id != attendee.id
             ],
@@ -261,13 +277,51 @@ async def me(
             table_summary=group.summary,
             table_starters=group.starters,
             narrative_source=group.narrative_source,
+            table_name=group.name,
+            tagline=group.tagline,
+            topics=group.topics,
+            seats=seats.get(group.table_number) if group.table_number is not None else None,
+            lunch_time=event.lunch_time,
+            location=event.location,
         )
     return MyStatus(
         attendee=attendee,
         status=enrollment_status(event, plan, utc_now()),
         enrollment_closes_at=event.enrollment_closes_at,
         assignment=assignment,
+        checked_in_at=checked_in_at if assignment else None,
     )
+
+
+@app.get("/api/me", response_model=MyStatus)
+async def me(services: Dependencies, x_attendee_token: AttendeeToken = None) -> MyStatus:
+    """An attendee's own enrollment and, once published, their table."""
+    return await my_status(services, await current_attendee(services, x_attendee_token))
+
+
+@app.put("/api/me", response_model=MyStatus)
+async def update_me(
+    enrollment: Enrollment, services: Dependencies, x_attendee_token: AttendeeToken = None
+) -> MyStatus:
+    """Edit your own answers while enrollment is open. Your ID and token stay the same."""
+    async with services.mutation_lock:
+        attendee = await current_attendee(services, x_attendee_token)
+        await require_open_enrollment(services)
+        updated = Attendee(id=attendee.id, **enrollment.model_dump())
+        await update_attendee(services.elasticsearch, updated)
+        logger.info("Enrollment updated.")
+    return await my_status(services, updated)
+
+
+@app.post("/api/me/check-in", response_model=MyStatus)
+async def check_in(services: Dependencies, x_attendee_token: AttendeeToken = None) -> MyStatus:
+    """Mark yourself seated at your published table. Repeating it is harmless."""
+    attendee = await current_attendee(services, x_attendee_token)
+    if my_group(await read_plan(services.elasticsearch), attendee.id) is None:
+        raise HTTPException(409, "Your table isn't published yet.")
+    await save_check_in(services.elasticsearch, attendee.id, utc_now())
+    check_in_counter.add(1)
+    return await my_status(services, attendee)
 
 
 async def add_demo_attendees(services: Services, attendees: list[Attendee]) -> int:
@@ -369,6 +423,7 @@ async def host_state(services: Dependencies) -> HostState:
         server_time=now,
         llm=llm_status(),
         auto=await read_auto_state(services.elasticsearch),
+        check_ins=await list_check_ins(services.elasticsearch),
     )
 
 
@@ -437,6 +492,11 @@ async def get_run(run_id: str, services: Dependencies) -> MatchRun:
     return run
 
 
+def answers(attendee: Attendee) -> dict[str, Any]:
+    """What the attendee told us, without fields the matcher adds."""
+    return attendee.model_dump(include=set(Enrollment.model_fields))
+
+
 async def publish(services: Services, run: MatchRun) -> MatchPlan:
     """Publish a run, unless it no longer matches the room or would leave someone out."""
     existing = await read_plan(services.elasticsearch)
@@ -449,14 +509,19 @@ async def publish(services: Services, run: MatchRun) -> MatchPlan:
         raise HTTPException(
             409, "The table setup changed after this run. Produce a new run to publish."
         )
-    seated = {member.id for group in run.plan.groups for member in group.members}
-    current = {attendee.id for attendee in await list_attendees(services.elasticsearch)}
-    if seated != current:
-        missing = len(current - seated)
+    seated = {member.id: member for group in run.plan.groups for member in group.members}
+    attendees = {attendee.id: attendee for attendee in await list_attendees(services.elasticsearch)}
+    if set(seated) != set(attendees):
+        missing = len(set(attendees) - set(seated))
         raise HTTPException(
             409,
             f"{missing} attendee(s) enrolled after this run, and some may have left. "
             "Produce a new run so everyone gets a seat.",
+        )
+    # Runs keep a copy of each profile, so an edit after the run would publish old answers.
+    if any(answers(seated[key]) != answers(attendee) for key, attendee in attendees.items()):
+        raise HTTPException(
+            409, "Someone edited their answers after this run. Produce a new run to publish."
         )
     plan = await save_plan(services.elasticsearch, run.plan)
     if plan.run_id != run.id:

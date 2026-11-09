@@ -187,6 +187,8 @@ def fixture_plan() -> MatchPlan:
 def good_notes(group: LunchGroup) -> dict[str, Any]:
     names = [member.name.split()[0] for member in group.members]
     return {
+        "table_name": "The Builders' table",
+        "tagline": ["Small bets.", "Big ideas."],
         "table_summary": f"{names[0]} and {names[1]} can trade ideas.",
         "conversation_starters": ["What surprised you?", "What would you redo?", "Best tool?"],
         "members": [
@@ -264,6 +266,25 @@ class TestParseNotes:
         notes = parse_notes(data, group, set())
         assert len(notes.summary) <= 300 and notes.summary.endswith("…")
 
+    def test_uses_the_models_table_name_and_tagline(self) -> None:
+        group = fixture_plan().groups[0]
+        notes = parse_notes(good_notes(group), group, set())
+        assert notes.name == "The Builders' table"
+        assert notes.tagline == ("Small bets.", "Big ideas.")
+
+    def test_weak_names_and_taglines_fall_back_to_the_template(self) -> None:
+        group = fixture_plan().groups[0]
+        data = good_notes(group) | {"table_name": "x" * 80, "tagline": ["Only one line."]}
+        notes = parse_notes(data, group, set())
+        assert notes.name == group.name and notes.name
+        assert list(notes.tagline) == group.tagline and len(notes.tagline) == 2
+
+    def test_table_name_cannot_mention_other_tables_people(self) -> None:
+        group = fixture_plan().groups[0]
+        data = good_notes(group) | {"table_name": "Zelda's table"}
+        with pytest.raises(NarrativeError, match="isn't at this table"):
+            parse_notes(data, group, {"Zelda"})
+
     def test_payload_only_contains_this_tables_people(self) -> None:
         plan = fixture_plan()
         payload = table_payload(plan.groups[0])
@@ -278,6 +299,12 @@ class TestNarratePlan:
         assert {group.narrative_source for group in plan.groups} == {"llm"}
         assert plan.narrative_provider == "fake:fake-1"
         assert plan.prompt_version == PROMPT_VERSION
+
+    async def test_ai_names_never_duplicate_another_table(self) -> None:
+        plan = await narrate_plan(fixture_plan(), FakeLLM())
+        names = [group.name for group in plan.groups]
+        assert names[0] == "The Builders' table"
+        assert len(set(names)) == len(names)
 
     async def test_invalid_output_is_retried_once_then_falls_back(self) -> None:
         base = fixture_plan()
