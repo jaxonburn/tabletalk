@@ -1712,7 +1712,14 @@ export function initOrganizer(root: HTMLElement): () => void {
     token = input("host-token").value.trim();
     sessionStorage.setItem(HOST_TOKEN_KEY, token);
     q("token-form").hidden = true;
-    void act(async () => "Unlocked.");
+    void act(
+      async () => {
+        await load();
+        fillTemplate();
+        return "Unlocked.";
+      },
+      { reload: false },
+    );
   });
 
   refresh();
