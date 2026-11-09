@@ -19,6 +19,7 @@ import {
   type TableVerdict,
   type TableSpec,
 } from "./api";
+import "./styles.css";
 
 const TOKEN_KEY = "tabletalk-host-token";
 const LAYOUT_INVALID =

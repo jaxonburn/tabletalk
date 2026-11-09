@@ -148,6 +148,25 @@ h1 span {
   content: "\00b7";
   margin-right: 12px;
 }
+.onboarding-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 28px;
+  padding: 14px 18px;
+  border-radius: 9px;
+  background: var(--green);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  transition:
+    background 0.15s,
+    transform 0.15s;
+}
+.onboarding-link:hover {
+  background: #347457;
+  transform: translateY(-1px);
+}
 .table-illustration {
   height: 285px;
   position: relative;

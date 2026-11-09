@@ -1,11 +1,24 @@
-import React from "react";
+import React, { Suspense, lazy } from "react";
 import ReactDOM from "react-dom/client";
-import App from "./App";
-import HostApp from "./HostApp";
-import "./styles.css";
 
-const isHostView = window.location.pathname.replace(/\/+$/, "") === "/host";
+// Each page brings its own stylesheet, and the pages style the same elements
+// (body, buttons, inputs) differently, so they load as separate chunks.
+const App = lazy(() => import("./App"));
+const HostApp = lazy(() => import("./HostApp"));
+const UserOnboarding = lazy(() => import("./onboarding/UserOnboarding"));
+
+const path = window.location.pathname.replace(/\/+$/, "");
+const Page =
+  path === "/host"
+    ? HostApp
+    : path === "/user-onboarding"
+      ? UserOnboarding
+      : App;
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>{isHostView ? <HostApp /> : <App />}</React.StrictMode>,
+  <React.StrictMode>
+    <Suspense fallback={null}>
+      <Page />
+    </Suspense>
+  </React.StrictMode>,
 );
