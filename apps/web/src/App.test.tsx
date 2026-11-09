@@ -26,43 +26,53 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
+function fillEnrollmentForm() {
+  fireEvent.change(screen.getByLabelText("Your name"), {
+    target: { value: "Alex" },
+  });
+  fireEvent.change(screen.getByLabelText("What do you do?"), {
+    target: { value: "Engineer" },
+  });
+  fireEvent.change(screen.getByLabelText(/What could you talk/), {
+    target: { value: "Kubernetes, Python" },
+  });
+  fireEvent.change(screen.getByLabelText("What you can offer"), {
+    target: { value: "Python APIs" },
+  });
+  fireEvent.change(screen.getByLabelText("What you're looking for"), {
+    target: { value: "Kubernetes" },
+  });
+}
+
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
 });
 
 describe("enrollment", () => {
-  it("limits goal selection to three and submits the enrollment contract", async () => {
+  it("allows selecting and deselecting multiple lunch goals and submits them", async () => {
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockImplementation(async () => jsonResponse(conference));
     vi.stubGlobal("fetch", fetchMock);
     render(<App />);
     await screen.findByText("A little about you.");
-    fireEvent.click(screen.getByRole("button", { name: "Hire" }));
-    fireEvent.click(screen.getByRole("button", { name: "Learn" }));
-    fireEvent.click(screen.getByRole("button", { name: "Invest" }));
-    expect(
-      screen
-        .getByRole("button", { name: "Meet peers" })
-        .hasAttribute("disabled"),
-    ).toBe(true);
-
-    fireEvent.change(screen.getByLabelText("Your name"), {
-      target: { value: "Alex" },
+    fireEvent.click(screen.getByRole("button", { name: "I want to learn" }));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "I want to share something I've learned",
+      }),
+    );
+    const connections = screen.getByRole("button", {
+      name: "I just want to make connections",
     });
-    fireEvent.change(screen.getByLabelText("What do you do?"), {
-      target: { value: "Engineer" },
-    });
-    fireEvent.change(screen.getByLabelText(/What could you talk/), {
-      target: { value: "Kubernetes, Python" },
-    });
-    fireEvent.change(screen.getByLabelText("What you can offer"), {
-      target: { value: "Python APIs" },
-    });
-    fireEvent.change(screen.getByLabelText("What you're looking for"), {
-      target: { value: "Kubernetes" },
-    });
+    fireEvent.click(connections);
+    expect(connections.getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(connections);
+    expect(connections.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(connections);
+    expect(screen.queryByRole("button", { name: "Hire" })).toBeNull();
+    fillEnrollmentForm();
     fetchMock.mockResolvedValueOnce(jsonResponse({ id: "new-attendee" }, 201));
     fireEvent.click(
       screen.getByRole("button", { name: /Find my lunch people/ }),
@@ -78,11 +88,30 @@ describe("enrollment", () => {
       name: "Alex",
       role: "Engineer",
       interests: ["Kubernetes", "Python"],
-      goals: ["Hire", "Learn", "Invest"],
+      goals: ["Learn", "Share something I've learned", "Meet connections"],
       can_help: "Python APIs",
       want_to_learn: "Kubernetes",
       lunch_slot: "day-1-lunch",
     });
+  });
+
+  it("requires at least one lunch goal before enrolling", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockImplementation(async () => jsonResponse(conference));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+    await screen.findByText("A little about you.");
+    fillEnrollmentForm();
+    fireEvent.click(
+      screen.getByRole("button", { name: /Find my lunch people/ }),
+    );
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "Please select at least one lunch goal.",
+    );
+    expect(
+      fetchMock.mock.calls.some(([path]) => path === "/api/enrollments"),
+    ).toBe(false);
   });
 
   it("shows loading failures and allows reconnecting", async () => {

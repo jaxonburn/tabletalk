@@ -12,8 +12,9 @@ app, and Gitar for reviewing the work as we build.
 
 ## What's here
 
-- A React enrollment experience: name, role, up to three goals, interests, what you
-  can offer, and what you're looking for.
+- A React enrollment experience: name, role, interests, what you can offer, and what
+  you're looking for. Choose one or more lunch goals: learn, share something you've
+  learned, or make connections.
 - Twelve fictional attendees to get a demo going quickly.
 - Elasticsearch-powered matching based on shared topics, complementary goals, and
   the things people can offer and want to learn.
@@ -83,7 +84,7 @@ there's no second database hiding the interesting work.
 
 The first version uses keyword relevance and structured filters, not an LLM.
 Conference and lunch slot are hard filters. Shared interests, complementary goals
-(such as hiring/getting hired), and offer/need text influence ranking. Assignment
+(learning/sharing or meeting connections), and offer/need text influence ranking. Assignment
 is a deterministic greedy heuristic, **not** a globally optimal matching algorithm.
 Explanations use actual topic, goal, and word overlap rather than generated claims.
 

@@ -1,6 +1,13 @@
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 CONFERENCE_ID = "cloud-native-hackathon"
 LUNCH_SLOT = "day-1-lunch"
@@ -10,9 +17,7 @@ MAX_ATTENDEES = 100
 ShortText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
 Answer = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
 Topic = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50)]
-Goal = Literal[
-    "Find a cofounder", "Hire", "Get hired", "Learn", "Sell / partner", "Invest", "Meet peers"
-]
+Goal = Literal["Learn", "Share something I've learned", "Meet connections"]
 
 
 class Enrollment(BaseModel):
@@ -21,7 +26,9 @@ class Enrollment(BaseModel):
     name: ShortText
     role: ShortText
     interests: list[Topic] = Field(min_length=1, max_length=8)
-    goals: list[Goal] = Field(default_factory=list, max_length=3)
+    goals: list[Goal] = Field(min_length=1, max_length=3)
+    focus_goal: Goal | None = None
+    goal_answers: dict[Goal, Answer] = Field(default_factory=dict)
     can_help: Answer
     want_to_learn: Answer
     lunch_slot: str = LUNCH_SLOT
@@ -42,6 +49,18 @@ class Enrollment(BaseModel):
         if value != LUNCH_SLOT:
             raise ValueError("Choose the available lunch slot.")
         return value
+
+    @model_validator(mode="after")
+    def validate_goal_answers(self) -> Self:
+        if self.focus_goal is None:
+            if self.goal_answers:
+                raise ValueError("Choose a focus goal when providing goal answers.")
+            return self
+        if self.focus_goal not in self.goals:
+            raise ValueError("The focus goal must be one of your selected goals.")
+        if set(self.goal_answers) != set(self.goals):
+            raise ValueError("Provide an answer for each selected goal, and only selected goals.")
+        return self
 
 
 class Attendee(Enrollment):
