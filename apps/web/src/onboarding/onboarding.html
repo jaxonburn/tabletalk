@@ -1,0 +1,794 @@
+<div id="tabletalk-auto" class="viz-dotted-background">
+  <main class="ta-phone">
+    <header class="ta-header">
+      <button
+        type="button"
+        id="ta-brand"
+        class="ta-brand cursor-interaction"
+        aria-label="TableTalk"
+        aria-disabled="true"
+      >
+        <svg class="ta-logo-mark" viewBox="8 8 84 84" aria-hidden="true">
+          <circle class="ta-dot" cx="25" cy="25" r="17" />
+          <circle class="ta-dot" cx="25" cy="75" r="17" />
+          <circle class="ta-dot" cx="75" cy="75" r="17" />
+          <g class="ta-bubble">
+            <circle cx="75" cy="25" r="17" />
+            <polygon points="58.3,28 72,41.7 55.5,44.5" />
+          </g></svg
+        ><span class="ta-wordmark">TableTalk</span></button
+      ><span class="ta-event" id="ta-event">SUMMIT / LUNCH</span>
+      <div class="ta-nav" id="ta-nav" hidden>
+        <button
+          type="button"
+          id="ta-nav-button"
+          class="ta-nav-button cursor-interaction"
+          aria-label="Menu"
+          aria-expanded="false"
+          aria-controls="ta-nav-menu"
+        >
+          <span></span><span></span><span></span>
+        </button>
+        <div id="ta-nav-menu" class="ta-nav-menu" hidden>
+          <div class="ta-nav-event">
+            <b>SUMMIT / LUNCH</b><span>12:30–1:15 · Main hall</span>
+          </div>
+          <button
+            type="button"
+            id="ta-nav-edit"
+            class="ta-nav-item cursor-interaction"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path
+                d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"
+              />
+              <path d="m15 5 4 4" /></svg
+            >Edit my details &amp; answers</button
+          ><button
+            type="button"
+            id="ta-nav-restart"
+            class="ta-nav-item cursor-interaction"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+              <path d="M3 3v5h5" /></svg
+            >Restart demo
+          </button>
+        </div>
+      </div>
+    </header>
+    <div id="ta-confetti" aria-hidden="true"></div>
+    <div
+      id="ta-progress"
+      class="ta-progress"
+      role="progressbar"
+      aria-label="Onboarding progress"
+      aria-valuemin="1"
+      aria-valuemax="3"
+      aria-valuenow="1"
+      aria-valuetext="Step 1 of 3: About you"
+    >
+      <span class="ta-current"></span><span></span><span></span>
+    </div>
+
+    <section id="ta-about" aria-labelledby="ta-about-heading">
+      <p class="ta-eyebrow">01 / NICE TO MEET YOU</p>
+      <h2 id="ta-about-heading" tabindex="-1">
+        First, a proper<br />introduction.
+      </h2>
+      <p class="ta-body">
+        A few details for your place card<br />and the people you’ll meet.
+      </p>
+      <form id="ta-about-form" class="ta-bento" novalidate>
+        <div class="ta-tile ta-field">
+          <label class="ta-label" for="ta-first-name"
+            >First name <span aria-hidden="true">*</span></label
+          ><input
+            id="ta-first-name"
+            name="given-name"
+            autocomplete="given-name"
+            placeholder="e.g. John"
+            maxlength="40"
+            required
+            aria-describedby="ta-first-error"
+          />
+          <p id="ta-first-error" class="ta-field-error" hidden></p>
+        </div>
+        <div class="ta-tile ta-field">
+          <label class="ta-label" for="ta-last-name"
+            >Last name <span aria-hidden="true">*</span></label
+          ><input
+            id="ta-last-name"
+            name="family-name"
+            autocomplete="family-name"
+            placeholder="e.g. Doe"
+            maxlength="60"
+            required
+            aria-describedby="ta-last-error"
+          />
+          <p id="ta-last-error" class="ta-field-error" hidden></p>
+        </div>
+        <div class="ta-tile ta-field ta-span-2">
+          <label class="ta-label" for="ta-title"
+            >Title <span class="ta-optional">(optional)</span></label
+          ><input
+            id="ta-title"
+            name="organization-title"
+            autocomplete="organization-title"
+            placeholder="Founder, designer, professional question-asker…"
+            maxlength="80"
+          />
+        </div>
+        <div class="ta-tile ta-field ta-span-2">
+          <label class="ta-label" for="ta-company"
+            >Company <span class="ta-optional">(optional)</span></label
+          ><input
+            id="ta-company"
+            name="organization"
+            autocomplete="organization"
+            placeholder="Where you work, study, or build"
+            maxlength="80"
+          />
+        </div>
+        <p class="ta-note ta-span-2">
+          Your name, title, company, and onboarding answers will be shared with
+          your tablemates. <span class="ta-required-note">* Required</span>
+        </p>
+        <p id="ta-about-error" class="ta-visually-hidden" role="alert"></p>
+        <button
+          type="button"
+          id="ta-continue"
+          class="ta-primary ta-span-2 cursor-interaction"
+        >
+          Next: your interests<svg
+            class="ta-arrow"
+            xmlns="http://www.w3.org/2000/svg"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.25"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M5 12h14" />
+            <path d="m12 5 7 7-7 7" />
+          </svg>
+        </button>
+      </form>
+    </section>
+
+    <section id="ta-topics" aria-labelledby="ta-topics-heading" hidden>
+      <p class="ta-eyebrow">02 / WHAT YOU’RE INTO</p>
+      <h2 id="ta-topics-heading" tabindex="-1">What gets you<br />talking?</h2>
+      <p class="ta-body">
+        Pick a few topics, or add your own. We use them to find common ground at
+        your table.
+      </p>
+      <div class="ta-bento">
+        <div class="ta-tile ta-span-2 ta-interest-tile">
+          <fieldset class="ta-fieldset">
+            <legend class="ta-label">What are you interested in?</legend>
+            <p class="ta-field-hint" id="ta-interest-hint">
+              Tap as many as you like.
+            </p>
+            <div
+              id="ta-interests"
+              class="ta-interest-list"
+              aria-describedby="ta-interest-hint"
+            ></div>
+          </fieldset>
+        </div>
+        <div class="ta-tile ta-span-2">
+          <label class="ta-label" for="ta-custom-interest">Add your own</label>
+          <div class="ta-custom-interest">
+            <input
+              id="ta-custom-interest"
+              placeholder="Another interest…"
+              maxlength="40"
+            /><button
+              type="button"
+              id="ta-add-interest"
+              class="ta-small-button cursor-interaction"
+            >
+              Add
+            </button>
+          </div>
+          <p
+            id="ta-interest-status"
+            class="ta-visually-hidden"
+            role="status"
+          ></p>
+        </div>
+      </div>
+      <p class="ta-note">Optional. Skip it if nothing fits.</p>
+      <button
+        type="button"
+        id="ta-topics-next"
+        class="ta-primary cursor-interaction"
+      >
+        Next: your goals<svg
+          class="ta-arrow"
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.25"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M5 12h14" />
+          <path d="m12 5 7 7-7 7" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        id="ta-topics-back"
+        class="ta-back cursor-interaction"
+      >
+        ← Back
+      </button>
+    </section>
+
+    <section id="ta-goals" aria-labelledby="ta-goals-heading" hidden>
+      <p class="ta-eyebrow">03 / MAKE IT YOUR KIND OF LUNCH</p>
+      <h2 id="ta-goals-heading" tabindex="-1">
+        Pick your goals.<br />Find your people.
+      </h2>
+      <p id="ta-goals-intro" class="ta-body">
+        Choose one or more. Star the one that matters most. A question will open
+        for each goal you select.
+      </p>
+      <form id="ta-goals-form" novalidate>
+        <fieldset
+          class="ta-fieldset ta-select-goals"
+          aria-describedby="ta-goal-error ta-goal-count"
+        >
+          <legend class="ta-visually-hidden">
+            Choose your lunch goals and star your focus
+          </legend>
+          <div id="ta-goal-choices" class="ta-goal-stack"></div>
+          <p id="ta-goal-error" class="ta-field-error" hidden></p>
+        </fieldset>
+        <p id="ta-goal-count" class="ta-selection-status" role="status">
+          Pick at least one goal to get started.
+        </p>
+        <p id="ta-goals-error" class="ta-visually-hidden" role="alert"></p>
+        <button
+          type="button"
+          id="ta-submit"
+          class="ta-primary cursor-interaction"
+        >
+          Save my spot<svg
+            class="ta-arrow"
+            xmlns="http://www.w3.org/2000/svg"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.25"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M5 12h14" />
+            <path d="m12 5 7 7-7 7" />
+          </svg>
+        </button>
+        <button type="button" id="ta-back" class="ta-back cursor-interaction">
+          ← Back
+        </button>
+        <p class="ta-reassurance">
+          Your answers stay with you, even if you change your goals.
+        </p>
+      </form>
+    </section>
+
+    <section id="ta-waiting" aria-labelledby="ta-waiting-heading" hidden>
+      <p class="ta-eyebrow">YOU’RE ON THE GUEST LIST</p>
+      <h2 id="ta-waiting-heading">Good company<br />is on its way.</h2>
+      <div class="ta-bento">
+        <div class="ta-tile ta-span-2 ta-scene-tile">
+          <div
+            class="ta-wait-scene"
+            role="img"
+            aria-label="Two little smiling characters keeping a lunch table company"
+          >
+            <span class="ta-scene-star ta-star-one"
+              ><svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path
+                  d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"
+                />
+                <path d="M20 2v4" />
+                <path d="M22 4h-4" />
+                <circle cx="4" cy="20" r="2" /></svg
+            ></span>
+            <span class="ta-scene-star ta-star-two"
+              ><svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path
+                  d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"
+                /></svg
+            ></span>
+            <span class="ta-chat-cloud" aria-hidden="true"
+              ><span></span><span></span><span></span
+            ></span>
+            <div class="ta-mochi ta-mochi-left" aria-hidden="true">
+              <span class="ta-sprout"></span><span class="ta-eyes"></span
+              ><span class="ta-blush"></span><span class="ta-smile"></span>
+            </div>
+            <div class="ta-mochi ta-mochi-right" aria-hidden="true">
+              <span class="ta-eyes"></span><span class="ta-blush"></span
+              ><span class="ta-smile"></span>
+            </div>
+            <div class="ta-little-table" aria-hidden="true">
+              <span
+                ><svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M10 2v2" />
+                  <path d="M14 2v2" />
+                  <path
+                    d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"
+                  />
+                  <path d="M6 2v2" /></svg></span
+              ><span
+                ><svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M10 2v2" />
+                  <path d="M14 2v2" />
+                  <path
+                    d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"
+                  />
+                  <path d="M6 2v2" /></svg
+              ></span>
+            </div>
+            <span class="ta-scene-caption">saving you a seat</span>
+          </div>
+        </div>
+        <div
+          id="ta-wait-initial"
+          class="ta-bento ta-span-2 ta-wait-message"
+          role="status"
+        >
+          <div class="ta-tile ta-span-2 ta-time-tile">
+            <span class="ta-time-label">TABLE MATCHES OPEN AT</span
+            ><strong class="ta-reveal-time">12:15<span> PM</span></strong>
+          </div>
+          <div class="ta-tile ta-mini">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M10.268 21a2 2 0 0 0 3.464 0" />
+              <path
+                d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"
+              />
+            </svg>
+            <p class="ta-body">
+              We will match you with a table at 12:15.<br />Stay tuned!
+            </p>
+          </div>
+          <div class="ta-tile ta-mini">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M10 2v2" />
+              <path d="M14 2v2" />
+              <path
+                d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"
+              />
+              <path d="M6 2v2" />
+            </svg>
+            <p class="ta-note">
+              Go enjoy the event. Come back here for your table reveal.
+            </p>
+          </div>
+        </div>
+        <div
+          id="ta-wait-ready"
+          class="ta-tile ta-span-2 ta-ready-tile ta-wait-message"
+          role="status"
+          hidden
+        >
+          <span class="ta-ready-badge"
+            ><svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+            YOUR TABLE IS READY</span
+          >
+          <p id="ta-ready-message" class="ta-body">
+            The wait is over. We found your table.
+          </p>
+          <button
+            type="button"
+            id="ta-reveal-table"
+            class="ta-primary cursor-interaction"
+          >
+            Meet my table<svg
+              class="ta-arrow"
+              xmlns="http://www.w3.org/2000/svg"
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.25"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M5 12h14" />
+              <path d="m12 5 7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      <button
+        type="button"
+        id="ta-wait-edit"
+        class="ta-back cursor-interaction"
+      >
+        Edit my details &amp; answers
+      </button>
+      <div id="ta-demo-control" class="ta-demo-control">
+        <span>DEMO SHORTCUT</span
+        ><button type="button" id="ta-simulate" class="cursor-interaction">
+          Simulate the 12:15 match<svg
+            class="ta-arrow"
+            xmlns="http://www.w3.org/2000/svg"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.25"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M5 12h14" />
+            <path d="m12 5 7 7-7 7" />
+          </svg>
+        </button>
+      </div>
+    </section>
+
+    <section id="ta-matching" aria-labelledby="ta-matching-heading" hidden>
+      <p class="ta-eyebrow">A LITTLE THOUGHT GOES INTO GOOD COMPANY</p>
+      <h2 id="ta-matching-heading">Setting your table.</h2>
+      <div class="ta-gather" aria-hidden="true">
+        <svg
+          class="ta-logo-mark ta-logo-loader"
+          viewBox="8 8 84 84"
+          aria-hidden="true"
+        >
+          <circle class="ta-dot" cx="25" cy="25" r="17" />
+          <circle class="ta-dot" cx="25" cy="75" r="17" />
+          <circle class="ta-dot" cx="75" cy="75" r="17" />
+          <g class="ta-bubble">
+            <circle cx="75" cy="25" r="17" />
+            <polygon points="58.3,28 72,41.7 55.5,44.5" />
+          </g>
+        </svg>
+      </div>
+      <p class="ta-body">
+        Your goals. What you bring.<br />A few people worth meeting.
+      </p>
+      <p class="ta-note" role="status">Preparing your sample table…</p>
+    </section>
+
+    <section id="ta-assigned" aria-labelledby="ta-assigned-heading" hidden>
+      <p class="ta-eyebrow">YOUR PEOPLE, AROUND ONE TABLE</p>
+      <h2 id="ta-assigned-heading">Good company.<br />Found for you.</h2>
+      <p class="ta-body">
+        We’ve paired you with a table.<br />A few shared interests. A few fresh
+        perspectives.
+      </p>
+      <div class="ta-bento ta-table-card">
+        <div class="ta-tile ta-span-2 ta-seat-tile">
+          <div class="ta-card-top">
+            <span id="ta-vibe">THE BUILDERS’ TABLE</span
+            ><span id="ta-seat-status">Your seat is waiting</span>
+          </div>
+          <div
+            class="ta-seat-bento"
+            role="img"
+            id="ta-seat-description"
+            aria-label="Your assigned table, with four attendees, your seat, and one open seat. 12:30 to 1:15, Main hall"
+          >
+            <div class="ta-table-tile">
+              <span>TABLE</span><strong id="ta-number">08</strong>
+              <div class="ta-table-foot">
+                <small id="ta-theme">Small bets.<br />Big ideas.</small
+                ><span class="ta-table-when">12:30–1:15 · Main hall</span>
+              </div>
+            </div>
+            <div class="ta-seat ta-you">
+              <span class="ta-avatar"
+                ><svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M19 9V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v3" />
+                  <path
+                    d="M3 16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5a2 2 0 0 0-4 0v1.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5V11a2 2 0 0 0-4 0z"
+                  />
+                  <path d="M5 18v2" />
+                  <path d="M19 18v2" /></svg></span
+              ><small>You</small>
+            </div>
+            <div class="ta-seat ta-s0">
+              <span class="ta-avatar">MK</span><small>Maya</small>
+            </div>
+            <div class="ta-seat ta-s1">
+              <span class="ta-avatar">JL</span><small>Jordan</small>
+            </div>
+            <div class="ta-seat ta-s2">
+              <span class="ta-avatar">AP</span><small>Ari</small>
+            </div>
+            <div class="ta-seat ta-s3">
+              <span class="ta-avatar">SN</span><small>Sam</small>
+            </div>
+            <div class="ta-seat ta-open">
+              <span class="ta-avatar">+</span
+              ><small>1 open seat · saved for a walk-in</small>
+            </div>
+          </div>
+          <div class="ta-checkin">
+            <button
+              type="button"
+              id="ta-seated"
+              class="ta-primary ta-seated cursor-interaction"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <path d="m9 12 2 2 4-4" /></svg
+              ><span
+                >I’m seated at Table <span id="ta-seated-number">08</span></span
+              >
+            </button>
+            <button
+              type="button"
+              id="ta-seated-done"
+              class="ta-tile ta-seated-done cursor-interaction"
+              hidden
+            >
+              <span class="ta-check"
+                ><svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M20 6 9 17l-5-5" /></svg></span
+              ><span class="ta-done-text"
+                ><b
+                  >Checked in at
+                  <span class="ta-nowrap"
+                    >Table <span id="ta-done-number">08</span></span
+                  ></b
+                ><span>Tap to see your conversation card</span></span
+              >
+            </button>
+          </div>
+        </div>
+        <div class="ta-tile ta-span-2">
+          <p class="ta-fit-label">WHY THIS MIX</p>
+          <p id="ta-reason" class="ta-reason">
+            Jordan brings product experience. Maya and Ari are building
+            early-stage projects.
+          </p>
+        </div>
+        <div class="ta-tile">
+          <p class="ta-fit-label">WHO’S THERE</p>
+          <div id="ta-people" class="ta-people"></div>
+        </div>
+        <div class="ta-tile">
+          <p class="ta-fit-label">TALK ABOUT</p>
+          <div id="ta-tags" class="ta-tags"></div>
+        </div>
+      </div>
+      <button type="button" id="ta-edit" class="ta-back cursor-interaction">
+        Edit my answers
+      </button>
+    </section>
+
+    <section id="ta-confirmed" aria-labelledby="ta-confirmed-heading" hidden>
+      <p class="ta-eyebrow">THERE’S ALWAYS ROOM FOR GOOD COMPANY</p>
+      <h2 id="ta-confirmed-heading">
+        You’re in,<br /><span id="ta-confirmed-name">John</span>.
+      </h2>
+      <p class="ta-body" role="status">
+        Your seat is confirmed. Let’s make it a good conversation.
+      </p>
+      <div class="ta-bento">
+        <div class="ta-tile ta-place-tile">
+          <span class="ta-tile-label">YOUR PLACE AT THE TABLE</span
+          ><b id="ta-ticket-name">John Doe</b
+          ><small id="ta-ticket-role">Founder · SimpleSend</small>
+        </div>
+        <div class="ta-tile ta-number-tile">
+          <span class="ta-tile-label">TABLE</span
+          ><strong id="ta-ticket-number">08</strong>
+        </div>
+        <div class="ta-tile ta-span-2 ta-when-tile">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 6v6l4 2" />
+          </svg>
+          <div>
+            <b>12:30–1:15 · Main hall</b
+            ><span
+              >You’re checked in. Say hi, then turn over the card below.</span
+            >
+          </div>
+        </div>
+      </div>
+      <div class="ta-round">
+        <span>THE FIRST ROUND</span><span>One good question.</span>
+      </div>
+      <button
+        type="button"
+        id="ta-question"
+        class="ta-question cursor-interaction"
+      >
+        <span class="ta-question-eyebrow"
+          >A LITTLE LESS “SO, WHAT DO YOU DO?”</span
+        ><strong id="ta-question-text">Break the ice.</strong
+        ><span id="ta-question-hint"
+          >Tap to turn over your table’s conversation card ↗</span
+        >
+      </button>
+      <div id="ta-question-actions" hidden>
+        <button
+          type="button"
+          id="ta-another"
+          class="ta-link cursor-interaction"
+        >
+          Deal another question ↻
+        </button>
+        <p class="ta-note">Anyone can start. Passing is always fine.</p>
+      </div>
+      <details class="ta-summary ta-tile">
+        <summary class="cursor-interaction">Your introduction</summary>
+        <p id="ta-summary-goal"></p>
+        <p id="ta-summary-offer"></p>
+      </details>
+    </section>
+
+    <footer class="ta-footer">INTERACTIVE CONCEPT · SAMPLE MATCHING</footer>
+  </main>
+</div>

@@ -8,6 +8,7 @@ import {
   type Goal,
   type LunchGroup,
 } from "./api";
+import "./styles.css";
 
 const emptyForm = {
   name: "",
@@ -176,6 +177,10 @@ export default function App() {
               <span>Up to {conference?.group_size ?? 4} people per table</span>
               <span>Shared interests. New perspectives.</span>
             </div>
+            <a className="onboarding-link" href="/user-onboarding">
+              Try the new attendee onboarding
+              <span aria-hidden="true">→</span>
+            </a>
           </div>
           <div className="table-illustration" aria-hidden="true">
             <span className="orbit-person person-one">You</span>

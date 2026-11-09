@@ -16,7 +16,15 @@ integrations; Dash0 is the observability destination.
 
 - `apps/web`: React, TypeScript, Vite. Same-origin `/api` requests are proxied to
   the conference API by Vite in development. The browser never accesses
-  Elasticsearch or the matching service directly.
+  Elasticsearch or the matching service directly. `src/main.tsx` picks the page
+  from the path: `/user-onboarding` loads the attendee onboarding prototype in
+  `src/onboarding/`, and everything else loads the main app. Each page is a
+  separate chunk with its own stylesheet.
+- `src/onboarding/`: the onboarding template's HTML and CSS, kept as close to the
+  original as possible, plus its script ported to TypeScript. It uses sample
+  goals and tables and sends nothing to the API. Its five demo goals differ from
+  the API's three goals in `seed.py`; align them before wiring it to
+  `POST /api/enrollments`.
 - `services/api`: public FastAPI API. Owns enrollment, fictional demo seeding,
   conference state, and organizer-triggered matching. Calls the matching service
   over HTTPX. An in-process lock serializes mutations in the single API worker.
