@@ -4,15 +4,32 @@
  * Attendee onboarding page (/user-onboarding).
  *
  * The rules between "Template styles" and "Page layout" are copied from the
- * TableTalk attendee prototype (tabletalk-tikatika.html) without changes. Keep
+ * TableTalk attendee prototype (tabletalk-protchibit.html) without changes. Keep
  * edits to the look in that block so the page stays close to the template.
  */
 
 /* Base styles the template relied on from its preview page. */
 #tabletalk-auto {
   font-size: 16px;
-  line-height: 1.625;
+  /* A fixed 16px × 1.625, so smaller text inherits 26px lines as it did there. */
+  line-height: 26px;
+  font-weight: 400;
   -webkit-font-smoothing: antialiased;
+}
+/* Text elements used the system font there unless the template set one. */
+:where(#tabletalk-auto) :where(p, h1, h2, h3, h4, h5, h6, li) {
+  font-family:
+    -apple-system-body,
+    ui-sans-serif,
+    -apple-system,
+    system-ui,
+    "Segoe UI",
+    Helvetica,
+    "Apple Color Emoji",
+    Arial,
+    sans-serif,
+    "Segoe UI Emoji",
+    "Segoe UI Symbol";
 }
 #tabletalk-auto :is(h1, h2, h3, h4, h5, h6, p) {
   margin-block: 0;
@@ -939,6 +956,214 @@
   font-weight: 700;
   color: var(--text);
 }
+#tabletalk-auto .ta-who-tile {
+  display: flex;
+  flex-direction: column;
+}
+#tabletalk-auto .ta-who-tile .ta-people {
+  margin-bottom: 14px;
+}
+#tabletalk-auto .ta-see-table {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  min-height: 40px;
+  margin-top: auto;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(30, 110, 243, 0.2);
+  border: 1px solid rgba(91, 149, 247, 0.55);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 0.2s var(--ease),
+    transform 0.2s var(--ease);
+}
+#tabletalk-auto .ta-see-table svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+#tabletalk-auto .ta-see-table:hover {
+  background: rgba(30, 110, 243, 0.34);
+}
+#tabletalk-auto .ta-see-table:active {
+  transform: scale(0.97);
+}
+#tabletalk-auto .ta-roster {
+  width: min(380px, calc(100vw - 32px));
+  max-height: calc(100dvh - 48px);
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--glass-line-hi);
+  border-radius: 24px;
+  background: linear-gradient(180deg, #151b23, #0b0f15);
+  color: var(--text);
+  font-family: var(--font);
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.6),
+    0 0 50px rgba(30, 110, 243, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+#tabletalk-auto .ta-roster[open] {
+  animation: ta-rise 0.35s var(--ease);
+}
+#tabletalk-auto .ta-roster::backdrop {
+  background: rgba(5, 7, 10, 0.62);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+#tabletalk-auto .ta-roster-inner {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 50px);
+  padding: 20px;
+}
+#tabletalk-auto .ta-roster-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+#tabletalk-auto .ta-roster-head .ta-eyebrow {
+  font-size: 12px;
+  margin: 0 0 6px;
+}
+#tabletalk-auto .ta-roster h3 {
+  font: 700 24px/1.1 var(--font);
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+#tabletalk-auto .ta-roster-sub {
+  font-size: 14px;
+  color: var(--dim);
+  margin: 6px 0 0;
+}
+#tabletalk-auto .ta-roster-close {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--glass);
+  border: 1px solid var(--glass-line);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+#tabletalk-auto .ta-roster-close:hover {
+  background: var(--glass-hi);
+}
+#tabletalk-auto .ta-roster-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  overflow-y: auto;
+  min-height: 0;
+}
+#tabletalk-auto .ta-roster-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: var(--glass);
+  border: 1px solid var(--glass-line);
+  animation: ta-rise 0.4s var(--ease) backwards;
+}
+#tabletalk-auto .ta-roster-row:nth-child(2) {
+  animation-delay: 0.04s;
+}
+#tabletalk-auto .ta-roster-row:nth-child(3) {
+  animation-delay: 0.08s;
+}
+#tabletalk-auto .ta-roster-row:nth-child(4) {
+  animation-delay: 0.12s;
+}
+#tabletalk-auto .ta-roster-row:nth-child(5) {
+  animation-delay: 0.16s;
+}
+#tabletalk-auto .ta-roster-row:nth-child(6) {
+  animation-delay: 0.2s;
+}
+#tabletalk-auto .ta-roster-avatar {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--glass-line-hi);
+  font-size: 13px;
+  font-weight: 700;
+}
+#tabletalk-auto .ta-roster-avatar svg {
+  width: 18px;
+  height: 18px;
+}
+#tabletalk-auto .ta-roster-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+#tabletalk-auto .ta-roster-text b {
+  font-size: 15px;
+}
+#tabletalk-auto .ta-roster-text small {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--dim);
+}
+#tabletalk-auto .ta-roster-you {
+  background: rgba(30, 110, 243, 0.22);
+  border-color: rgba(91, 149, 247, 0.55);
+}
+#tabletalk-auto .ta-roster-you .ta-roster-avatar {
+  background: var(--action);
+  border-color: #fff;
+}
+#tabletalk-auto .ta-roster-you .ta-roster-text small {
+  color: #d3dae1;
+}
+#tabletalk-auto .ta-roster-open {
+  background: transparent;
+  border: 1.5px dashed rgba(255, 255, 255, 0.3);
+}
+#tabletalk-auto .ta-roster-open .ta-roster-avatar {
+  background: transparent;
+  border: 1.5px dashed rgba(255, 255, 255, 0.4);
+  color: var(--dim);
+  font-size: 18px;
+  font-weight: 400;
+}
+#tabletalk-auto .ta-roster-open b {
+  color: #c9d1d9;
+}
+#tabletalk-auto .ta-roster-foot {
+  font-size: 13px;
+  color: var(--dim);
+  text-align: center;
+  margin: 14px 0 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  #tabletalk-auto .ta-roster,
+  #tabletalk-auto .ta-roster-row {
+    animation: none !important;
+  }
+}
 #tabletalk-auto .ta-tags {
   display: flex;
   flex-wrap: wrap;
@@ -974,21 +1199,45 @@
 #tabletalk-auto .ta-place-tile {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 3px;
   min-height: 156px;
 }
 #tabletalk-auto .ta-place-tile .ta-tile-label {
+  line-height: 1.35;
   margin-bottom: auto;
 }
+#tabletalk-auto .ta-place-avatar {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 14px 0 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--glass-line-hi);
+  font-size: 14px;
+  font-weight: 700;
+}
 #tabletalk-auto .ta-place-tile b {
-  font: 700 24px/1.1 var(--font);
+  font: 700 22px/1.15 var(--font);
   letter-spacing: -0.02em;
   overflow-wrap: anywhere;
+  margin-bottom: 2px;
 }
-#tabletalk-auto .ta-place-tile small {
+#tabletalk-auto .ta-place-line {
   font-size: 14px;
-  color: var(--dim);
+  line-height: 1.35;
+  color: #d3dae1;
   overflow-wrap: anywhere;
+}
+#tabletalk-auto .ta-place-company {
+  color: var(--dim);
+}
+#tabletalk-auto .ta-place-line.ta-empty {
+  color: var(--dim);
+  font-style: italic;
 }
 #tabletalk-auto .ta-number-tile {
   display: flex;
@@ -1155,6 +1404,63 @@
 }
 #tabletalk-auto .ta-question > * {
   position: relative;
+}
+#tabletalk-auto .ta-question-wrap {
+  position: relative;
+}
+#tabletalk-auto .ta-question > .ta-q-shine {
+  position: absolute;
+  inset: -1px;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.5) 47%,
+    rgba(255, 255, 255, 0.12) 55%,
+    transparent 68%
+  );
+  transform: translateX(-120%);
+  opacity: 0;
+}
+#tabletalk-auto .ta-question:not(.ta-revealed) {
+  animation: ta-peek 5s ease-in-out 1.5s infinite;
+}
+@keyframes ta-peek {
+  0%,
+  78%,
+  100% {
+    transform: none;
+  }
+  84% {
+    transform: perspective(900px) rotateY(-11deg) rotateX(3deg) translateY(-4px);
+  }
+  90% {
+    transform: perspective(900px) rotateY(5deg);
+  }
+  95% {
+    transform: perspective(900px) rotateY(-2deg);
+  }
+}
+#tabletalk-auto .ta-q-burst {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+#tabletalk-auto .ta-q-burst > span {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  margin: -4.5px 0 0 -4.5px;
+  border-radius: 2px;
+}
+#tabletalk-auto .ta-q-burst > span.ta-q-dot {
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
 }
 #tabletalk-auto .ta-question-eyebrow {
   font-size: 13px;
@@ -1825,9 +2131,9 @@
   color: var(--dim);
 }
 @media (hover: hover) {
-  #tabletalk-auto .ta-focus-star:hover {
+  #tabletalk-auto .ta-focus-star[aria-pressed="false"]:hover {
     background: var(--glass-hi);
-    color: var(--text);
+    color: var(--blue-text);
   }
   #tabletalk-auto .ta-interest-choice:hover > span {
     transform: translateY(-2px);
@@ -1865,120 +2171,31 @@
   }
 }
 
-/* Header nav (after onboarding) */
-#tabletalk-auto .ta-phone > .ta-header:not(#ta-confetti) {
-  z-index: 5;
-}
-#tabletalk-auto .ta-nav {
-  position: relative;
-}
-#tabletalk-auto .ta-nav-button {
-  position: relative;
+/* Header event + lunch hours (after onboarding) */
+#tabletalk-auto .ta-event-time {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  border-radius: 999px;
-  border: 1px solid var(--glass-line);
-  background: var(--glass);
-  transition:
-    background 0.2s,
-    border-color 0.2s;
-  animation: ta-dot-in 0.4s var(--ease) backwards;
-}
-#tabletalk-auto .ta-nav-button > span {
-  display: block;
-  width: 18px;
-  height: 2px;
-  border-radius: 2px;
-  background: #fff;
-  transition:
-    transform 0.25s var(--ease),
-    opacity 0.2s;
-}
-#tabletalk-auto .ta-nav-button[aria-expanded="true"] {
-  background: var(--glass-hi);
-  border-color: var(--glass-line-hi);
-}
-#tabletalk-auto .ta-nav-button[aria-expanded="true"] > span:nth-child(1) {
-  transform: translateY(6px) rotate(45deg);
-}
-#tabletalk-auto .ta-nav-button[aria-expanded="true"] > span:nth-child(2) {
-  opacity: 0;
-}
-#tabletalk-auto .ta-nav-button[aria-expanded="true"] > span:nth-child(3) {
-  transform: translateY(-6px) rotate(-45deg);
-}
-#tabletalk-auto .ta-nav-menu {
-  position: absolute;
-  top: calc(100% + 10px);
-  right: 0;
-  width: 272px;
-  padding: 8px;
-  border-radius: 18px;
-  background: linear-gradient(180deg, #151b23, #0e1218);
-  border: 1px solid var(--glass-line-hi);
-  box-shadow:
-    0 18px 40px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  transform-origin: top right;
-  animation: ta-menu-in 0.22s var(--ease);
-}
-#tabletalk-auto .ta-nav-event {
-  display: flex;
-  flex-direction: column;
+  align-items: flex-end;
   gap: 3px;
-  padding: 10px 12px 12px;
-  margin-bottom: 6px;
-  border-bottom: 1px solid var(--glass-line);
+  padding: 7px 12px;
+  border-radius: 14px;
+  background: var(--glass);
+  border: 1px solid var(--glass-line);
+  text-align: right;
+  line-height: 1;
+  animation: ta-fade 0.3s var(--ease);
 }
-#tabletalk-auto .ta-nav-event b {
-  font-size: 12px;
+#tabletalk-auto .ta-event-name {
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   color: var(--dim);
 }
-#tabletalk-auto .ta-nav-event span {
-  font-size: 14px;
-  color: var(--text);
-}
-#tabletalk-auto .ta-nav-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  min-height: 44px;
-  padding: 10px 12px;
-  line-height: 1.3;
-  white-space: nowrap;
-  border: 0;
-  border-radius: 12px;
-  background: transparent;
-  color: var(--text);
+#tabletalk-auto .ta-event-hours {
   font-size: 15px;
-  font-weight: 600;
-  text-align: left;
-  transition: background 0.15s;
-}
-#tabletalk-auto .ta-nav-item svg {
-  width: 18px;
-  height: 18px;
-  flex: none;
-  color: var(--blue-text);
-}
-#tabletalk-auto .ta-nav-item:hover,
-#tabletalk-auto .ta-nav-item:focus-visible {
-  background: var(--glass-hi);
-}
-@keyframes ta-menu-in {
-  from {
-    opacity: 0;
-    transform: translateY(-6px) scale(0.96);
-  }
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
 }
 @media (prefers-reduced-motion: reduce) {
   #tabletalk-auto *,
@@ -2130,13 +2347,12 @@
   color: #c9d1d9;
 }
 #tabletalk-auto .ta-you {
-  background: var(--action);
-  border-color: rgba(255, 255, 255, 0.35);
   animation-delay: 0.18s;
 }
 #tabletalk-auto .ta-you .ta-avatar {
-  background: transparent;
+  background: var(--action);
   border: 1.5px solid #fff;
+  color: #fff;
   animation: ta-ring-w 2.2s ease-out 1.2s infinite;
 }
 #tabletalk-auto .ta-you svg {
@@ -2296,6 +2512,21 @@ body:has(#tabletalk-auto) {
 }
 #tabletalk-auto .ta-footer-link {
   color: inherit;
+}
+/* "Forget me" sits under the footer line once you're signed in. */
+#tabletalk-auto .ta-forget {
+  display: block;
+  margin: 10px auto 0;
+  padding: 6px 10px;
+  border: 0;
+  background: none;
+  font: inherit;
+  letter-spacing: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+#tabletalk-auto .ta-forget[hidden] {
+  display: none;
 }
 #tabletalk-auto .ta-primary[aria-busy="true"] {
   opacity: 0.7;

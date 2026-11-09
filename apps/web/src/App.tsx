@@ -238,10 +238,19 @@ export default function App() {
               <span>Up to {conference?.group_size ?? 4} people per table</span>
               <span>Shared interests. New perspectives.</span>
             </div>
-            <a className="onboarding-link" href="/">
-              Switch to the new attendee experience
-              <span aria-hidden="true">→</span>
-            </a>
+            <div className="hero-links">
+              <a className="onboarding-link" href="/">
+                Switch to the new attendee experience
+                <span aria-hidden="true">→</span>
+              </a>
+              <a
+                className="onboarding-link organizer-link"
+                href="/organizer-workflow"
+              >
+                Organizer Workflow
+                <span aria-hidden="true">→</span>
+              </a>
+            </div>
           </div>
           <div className="table-illustration" aria-hidden="true">
             <span className="orbit-person person-one">You</span>

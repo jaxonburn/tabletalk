@@ -148,11 +148,16 @@ h1 span {
   content: "\00b7";
   margin-right: 12px;
 }
+.hero-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 28px;
+}
 .onboarding-link {
   display: inline-flex;
   align-items: center;
   gap: 12px;
-  margin-top: 28px;
   padding: 14px 18px;
   border-radius: 9px;
   background: var(--green);
@@ -166,6 +171,14 @@ h1 span {
 .onboarding-link:hover {
   background: #347457;
   transform: translateY(-1px);
+}
+.organizer-link {
+  background: #fff;
+  color: var(--green);
+  box-shadow: inset 0 0 0 1px #c9d8c4;
+}
+.organizer-link:hover {
+  background: #eef2e9;
 }
 .table-illustration {
   height: 285px;

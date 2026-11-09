@@ -1,0 +1,1022 @@
+<div id="tt-admin">
+  <header class="ad-topbar">
+    <span class="ad-brand"
+      ><svg class="ad-logo-mark" viewBox="8 8 84 84" aria-hidden="true">
+        <circle class="ad-dot" cx="25" cy="25" r="17" />
+        <circle class="ad-dot" cx="25" cy="75" r="17" />
+        <circle class="ad-dot" cx="75" cy="75" r="17" />
+        <g class="ad-bubble">
+          <circle cx="75" cy="25" r="17" />
+          <polygon points="58.3,28 72,41.7 55.5,44.5" />
+        </g></svg
+      ><span>TableTalk</span></span
+    ><span class="ad-console">ORGANIZER CONSOLE</span
+    ><span class="ad-demo">INTERACTIVE DEMO</span>
+  </header>
+  <div class="ad-layout">
+    <aside class="ad-sidebar">
+      <label for="ad-event-select" class="ad-label ad-small-label"
+        >YOUR EVENT</label
+      ><select
+        id="ad-event-select"
+        class="ad-event-select"
+        aria-label="Current event"
+      ></select>
+      <button
+        type="button"
+        id="ad-create"
+        class="ad-button ad-outline ad-new cursor-interaction"
+      >
+        <span>＋</span> Create event
+      </button>
+      <nav class="ad-nav" aria-label="Event workspace">
+        <button
+          type="button"
+          class="cursor-interaction"
+          data-view="overview"
+          aria-current="page"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <rect width="7" height="9" x="3" y="3" rx="1" />
+            <rect width="7" height="5" x="14" y="3" rx="1" />
+            <rect width="7" height="9" x="14" y="12" rx="1" />
+            <rect width="7" height="5" x="3" y="16" rx="1" />
+          </svg>
+          Overview
+        </button>
+        <button type="button" class="cursor-interaction" data-view="tables">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M19 9V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v3" />
+            <path
+              d="M3 16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5a2 2 0 0 0-4 0v1.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5V11a2 2 0 0 0-4 0z"
+            />
+            <path d="M5 18v2" />
+            <path d="M19 18v2" />
+          </svg>
+          Tables
+        </button>
+        <button type="button" class="cursor-interaction" data-view="signup">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <rect width="5" height="5" x="3" y="3" rx="1" />
+            <rect width="5" height="5" x="16" y="3" rx="1" />
+            <rect width="5" height="5" x="3" y="16" rx="1" />
+            <path d="M21 16h-3a2 2 0 0 0-2 2v3" />
+            <path d="M21 21v.01" />
+            <path d="M12 7v3a2 2 0 0 1-2 2H7" />
+            <path d="M3 12h.01" />
+            <path d="M12 3h.01" />
+            <path d="M12 16v.01" />
+            <path d="M16 12h1" />
+            <path d="M21 12v.01" />
+            <path d="M12 21v-1" />
+          </svg>
+          Signup QR
+        </button>
+        <button type="button" class="cursor-interaction" data-view="matching">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M18 21a8 8 0 0 0-16 0" />
+            <circle cx="10" cy="8" r="5" />
+            <path d="M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3" />
+          </svg>
+          Matching
+        </button>
+        <button type="button" class="cursor-interaction" data-view="updates">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path
+              d="M11 6a13 13 0 0 0 8.4-2.8A1 1 0 0 1 21 4v12a1 1 0 0 1-1.6.8A13 13 0 0 0 11 14H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"
+            />
+            <path
+              d="M6 14a12 12 0 0 0 2.4 7.2 2 2 0 0 0 3.2-2.4A8 8 0 0 1 10 14"
+            />
+            <path d="M8 6v8" />
+          </svg>
+          Updates
+        </button>
+      </nav>
+      <div class="ad-side-note">
+        <span class="ad-side-dot"></span
+        ><b>Good company.<br />A little coordination.</b>
+        <p>Everything for a lunch worth showing up to.</p>
+      </div>
+    </aside>
+    <main class="ad-main">
+      <div class="ad-breadcrumb">
+        <span id="ad-breadcrumb">UTAH BUILDERS SUMMIT / OVERVIEW</span
+        ><span id="ad-top-status" class="ad-badge">Registration open</span>
+      </div>
+      <div id="ad-toast" class="ad-toast" role="status" hidden></div>
+
+      <section
+        id="ad-overview"
+        class="ad-screen"
+        aria-labelledby="ad-overview-title"
+      >
+        <div class="ad-page-heading">
+          <div>
+            <p class="ad-eyebrow">A GOOD LUNCH STARTS HERE</p>
+            <h2 id="ad-overview-title">Utah Builders Summit</h2>
+            <p id="ad-event-meta" class="ad-subtitle"></p>
+          </div>
+          <button
+            type="button"
+            id="ad-edit-event"
+            class="ad-button ad-outline cursor-interaction"
+          >
+            Edit event
+          </button>
+        </div>
+        <div class="ad-attendee-strip">
+          <div>
+            <span class="ad-count" id="ad-registered">34</span
+            ><span>attendees registered</span>
+          </div>
+          <p id="ad-ready-summary">
+            30 ready to match · 4 still completing their profile
+          </p>
+          <span id="ad-capacity-summary" class="ad-capacity"></span>
+        </div>
+        <div class="ad-overview-columns">
+          <div>
+            <div class="ad-section-heading">
+              <h3>Your event, in four moves.</h3>
+              <span>ONE WORKSPACE</span>
+            </div>
+            <div class="ad-workflow">
+              <div class="ad-workflow-row">
+                <span class="ad-step">01</span>
+                <div>
+                  <h4>Set up the room.</h4>
+                  <p id="ad-setup-detail"></p>
+                </div>
+                <button
+                  type="button"
+                  data-action="tables"
+                  class="ad-text-button cursor-interaction"
+                >
+                  Tables <span>↗</span>
+                </button>
+              </div>
+              <div class="ad-workflow-row">
+                <span class="ad-step">02</span>
+                <div>
+                  <h4>Fill the room.</h4>
+                  <p>One signup link. A QR code for every sign.</p>
+                </div>
+                <button
+                  type="button"
+                  data-action="signup"
+                  class="ad-text-button cursor-interaction"
+                >
+                  Get QR <span>↗</span>
+                </button>
+              </div>
+              <div class="ad-workflow-row">
+                <span class="ad-step">03</span>
+                <div>
+                  <h4>Find their people.</h4>
+                  <p id="ad-matching-detail">
+                    Schedule matching or run it when you’re ready.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  data-action="matching"
+                  class="ad-text-button cursor-interaction"
+                >
+                  Matching <span>↗</span>
+                </button>
+              </div>
+              <div class="ad-workflow-row">
+                <span class="ad-step">04</span>
+                <div>
+                  <h4>Keep everyone in the loop.</h4>
+                  <p id="ad-updates-detail">
+                    Reminders, table reveals, and the occasional change of plan.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  data-action="updates"
+                  class="ad-text-button cursor-interaction"
+                >
+                  Write update <span>↗</span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <aside class="ad-day-plan">
+            <span class="ad-eyebrow">THE LUNCH PLAN</span>
+            <div class="ad-lunch-time" id="ad-lunch-time">
+              12:30<span> PM</span>
+            </div>
+            <p id="ad-location">Main hall</p>
+            <hr />
+            <dl>
+              <div>
+                <dt>Event date</dt>
+                <dd id="ad-plan-date"></dd>
+              </div>
+              <div>
+                <dt>Matching</dt>
+                <dd id="ad-plan-matching">Not scheduled</dd>
+              </div>
+              <div>
+                <dt>Tables</dt>
+                <dd id="ad-plan-tables"></dd>
+              </div>
+              <div>
+                <dt>Time zone</dt>
+                <dd id="ad-plan-zone">America/Denver</dd>
+              </div>
+            </dl>
+            <button
+              type="button"
+              id="ad-overview-qr"
+              class="ad-button ad-dark cursor-interaction"
+            >
+              Share the signup QR <span>↗</span>
+            </button>
+          </aside>
+        </div>
+      </section>
+
+      <section
+        id="ad-setup"
+        class="ad-screen"
+        aria-labelledby="ad-setup-title"
+        hidden
+      >
+        <div class="ad-page-heading">
+          <div>
+            <p class="ad-eyebrow">SET THE SCENE</p>
+            <h2 id="ad-setup-title">Create your event.</h2>
+            <p class="ad-subtitle">
+              A few details. Then you’re ready to invite people.
+            </p>
+          </div>
+        </div>
+        <form id="ad-event-form" novalidate class="ad-setup-form">
+          <div class="ad-two-fields">
+            <div class="ad-field ad-span-two">
+              <label class="ad-label" for="ad-event-name">Event name</label
+              ><input
+                id="ad-event-name"
+                maxlength="80"
+                placeholder="e.g. Utah Builders Summit"
+                required
+              />
+            </div>
+            <div class="ad-field">
+              <label class="ad-label" for="ad-event-date">Event date</label
+              ><input id="ad-event-date" type="date" required />
+            </div>
+            <div class="ad-field">
+              <label class="ad-label" for="ad-event-zone">Time zone</label
+              ><select id="ad-event-zone">
+                <option value="America/Denver">
+                  Mountain · America/Denver
+                </option>
+                <option value="America/Los_Angeles">
+                  Pacific · America/Los_Angeles
+                </option>
+                <option value="America/Chicago">
+                  Central · America/Chicago
+                </option>
+                <option value="America/New_York">
+                  Eastern · America/New_York
+                </option>
+              </select>
+            </div>
+            <div class="ad-field">
+              <label class="ad-label" for="ad-lunch-start">Lunch starts</label
+              ><input id="ad-lunch-start" type="time" required />
+            </div>
+            <div class="ad-field">
+              <label class="ad-label" for="ad-lunch-end">Lunch ends</label
+              ><input id="ad-lunch-end" type="time" required />
+            </div>
+            <div class="ad-field ad-span-two">
+              <label class="ad-label" for="ad-event-location"
+                >Where should people go?</label
+              ><input
+                id="ad-event-location"
+                maxlength="100"
+                placeholder="Main hall, first floor"
+                required
+              />
+            </div>
+          </div>
+          <div class="ad-event-tables-note">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M19 9V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v3" />
+              <path
+                d="M3 16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5a2 2 0 0 0-4 0v1.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5V11a2 2 0 0 0-4 0z"
+              />
+              <path d="M5 18v2" />
+              <path d="M19 18v2" />
+            </svg>
+            <p>
+              Set up table numbers, seats, and the enrollment cutoff on your
+              event’s <b>Tables</b> page.
+            </p>
+          </div>
+          <p id="ad-event-error" class="ad-error" role="alert" hidden></p>
+          <div class="ad-form-actions">
+            <button
+              type="button"
+              id="ad-cancel-event"
+              class="ad-button ad-outline cursor-interaction"
+            >
+              Cancel</button
+            ><button
+              type="submit"
+              id="ad-save-event"
+              class="ad-button ad-primary cursor-interaction"
+            >
+              Create event <span>→</span>
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section
+        id="ad-tables"
+        class="ad-screen"
+        aria-labelledby="ad-tables-title"
+        hidden
+      >
+        <div class="ad-page-heading">
+          <div>
+            <p class="ad-eyebrow">01 / SET UP THE ROOM</p>
+            <h2 id="ad-tables-title">Tables and cutoff.</h2>
+            <p class="ad-subtitle">
+              Give every conversation a place. Set the room, then choose when
+              enrollment closes.
+            </p>
+          </div>
+          <span id="ad-room-save-state" class="ad-badge">Saved setup</span>
+        </div>
+        <div id="ad-room-lock" class="ad-room-lock" hidden>
+          <p id="ad-room-lock-message"></p>
+          <div class="ad-inline-actions">
+            <button
+              type="button"
+              id="ad-discard-plan"
+              class="ad-button ad-outline cursor-interaction"
+              hidden
+            >
+              Discard draft to edit</button
+            ><button
+              type="button"
+              id="ad-room-view-plan"
+              class="ad-button ad-outline cursor-interaction"
+            >
+              View seating plan <span>↗</span>
+            </button>
+          </div>
+        </div>
+        <form id="ad-room-form" class="ad-room-form" novalidate>
+          <fieldset id="ad-room-controls" class="ad-room-controls">
+            <legend class="ad-sr-only">
+              Event table layout and enrollment settings
+            </legend>
+            <div class="ad-bulk-layout">
+              <div>
+                <label class="ad-label" for="ad-bulk-count">Tables</label
+                ><input
+                  id="ad-bulk-count"
+                  type="number"
+                  min="1"
+                  max="50"
+                  value="6"
+                  inputmode="numeric"
+                />
+              </div>
+              <div>
+                <label class="ad-label" for="ad-bulk-seats">Seats each</label
+                ><input
+                  id="ad-bulk-seats"
+                  type="number"
+                  min="2"
+                  max="12"
+                  value="6"
+                  inputmode="numeric"
+                />
+              </div>
+              <button
+                type="button"
+                id="ad-use-layout"
+                class="ad-button ad-outline cursor-interaction"
+              >
+                Use this layout
+              </button>
+            </div>
+            <p class="ad-help ad-bulk-help">
+              A quick starting point. This replaces the table rows below.
+            </p>
+            <div class="ad-room-columns" aria-hidden="true">
+              <span>Table #</span><span>Seats</span><span></span>
+            </div>
+            <div id="ad-room-rows" class="ad-room-rows"></div>
+            <button
+              type="button"
+              id="ad-add-table"
+              class="ad-add-table cursor-interaction"
+            >
+              ＋ Add a table
+            </button>
+            <p id="ad-room-total" class="ad-room-total" role="status">
+              6 tables · 36 seats
+            </p>
+            <p
+              id="ad-room-capacity-note"
+              class="ad-help ad-room-capacity-note"
+            ></p>
+            <div class="ad-two-fields ad-room-timing">
+              <div class="ad-field">
+                <label class="ad-label" for="ad-cutoff"
+                  >Enrollment closes at</label
+                ><input id="ad-cutoff" type="datetime-local" required />
+                <p id="ad-cutoff-zone" class="ad-help">
+                  America/Denver · event local time
+                </p>
+              </div>
+              <div class="ad-field">
+                <label class="ad-label" for="ad-minimum-size"
+                  >Smallest table allowed</label
+                ><input
+                  id="ad-minimum-size"
+                  type="number"
+                  min="2"
+                  max="12"
+                  inputmode="numeric"
+                  value="2"
+                  required
+                />
+                <p class="ad-help">
+                  The minimum number of people to seat together.
+                </p>
+              </div>
+            </div>
+            <div class="ad-room-options">
+              <label class="ad-check cursor-interaction"
+                ><input type="checkbox" id="ad-auto-match" /><span
+                  >Match automatically at the cutoff</span
+                ></label
+              ><label class="ad-check cursor-interaction"
+                ><input type="checkbox" id="ad-auto-publish" /><span
+                  >Publish the automatic run right away</span
+                ></label
+              >
+            </div>
+            <p id="ad-room-behavior" class="ad-help">
+              At the cutoff, TableTalk makes a draft for you to review and
+              publish.
+            </p>
+            <p id="ad-room-error" class="ad-error" role="alert" hidden></p>
+            <button
+              type="submit"
+              id="ad-save-room"
+              class="ad-button ad-primary ad-full cursor-interaction"
+            >
+              Save setup <span>→</span>
+            </button>
+          </fieldset>
+        </form>
+        <button
+          type="button"
+          id="ad-room-demo-cutoff"
+          class="ad-demo-action cursor-interaction"
+          hidden
+        >
+          Demo: advance to the enrollment cutoff →
+        </button>
+      </section>
+
+      <section
+        id="ad-signup"
+        class="ad-screen"
+        aria-labelledby="ad-signup-title"
+        hidden
+      >
+        <div class="ad-page-heading">
+          <div>
+            <p class="ad-eyebrow">FILL THE ROOM</p>
+            <h2 id="ad-signup-title">One scan. Good company.</h2>
+            <p class="ad-subtitle">
+              Put this at check-in, on the big screen, or wherever people
+              gather.
+            </p>
+          </div>
+        </div>
+        <div class="ad-share-layout">
+          <div class="ad-poster" id="ad-poster">
+            <div class="ad-poster-brand">
+              <svg class="ad-logo-mark" viewBox="8 8 84 84" aria-hidden="true">
+                <circle class="ad-dot" cx="25" cy="25" r="17" />
+                <circle class="ad-dot" cx="25" cy="75" r="17" />
+                <circle class="ad-dot" cx="75" cy="75" r="17" />
+                <g class="ad-bubble">
+                  <circle cx="75" cy="25" r="17" />
+                  <polygon points="58.3,28 72,41.7 55.5,44.5" />
+                </g></svg
+              ><span>TableTalk</span>
+            </div>
+            <span class="ad-poster-kicker" id="ad-poster-event"></span>
+            <h3>Lunch with<br />your kind<br />of people.</h3>
+            <div
+              id="ad-qr"
+              class="ad-qr"
+              role="img"
+              aria-label="Signup QR code"
+            ></div>
+            <p>Scan to join the conversation.</p>
+            <small id="ad-poster-details"></small
+            ><span class="ad-poster-bottom">A FEW GOOD CONVERSATIONS.</span>
+          </div>
+          <div class="ad-share-actions">
+            <h3>Your invitation, ready to go.</h3>
+            <p class="ad-muted">
+              Attendees scan, introduce themselves, and get their table when you
+              publish the match.
+            </p>
+            <label class="ad-label" for="ad-signup-url">Signup link</label>
+            <div class="ad-copy-row">
+              <input id="ad-signup-url" readonly /><button
+                type="button"
+                id="ad-copy-link"
+                class="ad-button ad-outline cursor-interaction"
+                aria-label="Copy signup link"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+                  <path
+                    d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"
+                  />
+                </svg>
+                Copy
+              </button>
+            </div>
+            <p class="ad-help">Example signup destination · demo only.</p>
+            <div class="ad-download-actions">
+              <button
+                type="button"
+                id="ad-print-sign"
+                class="ad-button ad-primary cursor-interaction"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"
+                  />
+                  <path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6" />
+                  <rect x="6" y="14" width="12" height="8" rx="1" />
+                </svg>
+                Download printable sign</button
+              ><button
+                type="button"
+                id="ad-download-qr"
+                class="ad-button ad-outline cursor-interaction"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M12 15V3" />
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <path d="m7 10 5 5 5-5" />
+                </svg>
+                Download QR code
+              </button>
+            </div>
+            <p class="ad-help">
+              Print sign: browser-ready HTML for A4 or US Letter.<br />QR code:
+              crisp SVG for slides, posters, and badges.
+            </p>
+            <div class="ad-tip">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+                <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+                <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+                <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+                <path d="M7 12h10" />
+              </svg>
+              <div>
+                <b>Make it easy to join.</b>
+                <p>
+                  Keep the code large, leave the white border clear, and include
+                  a short “Scan to join” message.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section
+        id="ad-matching"
+        class="ad-screen"
+        aria-labelledby="ad-matching-title"
+        hidden
+      >
+        <div class="ad-page-heading">
+          <div>
+            <p class="ad-eyebrow">FIND THEIR PEOPLE</p>
+            <h2 id="ad-matching-title">A little matching magic.</h2>
+            <p class="ad-subtitle">
+              Create a seating plan, give it a look, then reveal everyone’s
+              table.
+            </p>
+          </div>
+          <span id="ad-match-badge" class="ad-badge">Not scheduled</span>
+        </div>
+        <div class="ad-match-readiness">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M18 21a8 8 0 0 0-16 0" />
+            <circle cx="10" cy="8" r="5" />
+            <path d="M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3" />
+          </svg>
+          <div>
+            <strong id="ad-ready-label">30 attendees ready to match</strong>
+            <p id="ad-incomplete-label">
+              4 incomplete profiles stay out of this round.
+            </p>
+          </div>
+        </div>
+        <div class="ad-matching-layout">
+          <div class="ad-panel">
+            <div
+              class="ad-segments"
+              role="group"
+              aria-label="When to run matching"
+            >
+              <button
+                type="button"
+                id="ad-mode-schedule"
+                class="cursor-interaction"
+                aria-pressed="true"
+              >
+                Schedule</button
+              ><button
+                type="button"
+                id="ad-mode-now"
+                class="cursor-interaction"
+                aria-pressed="false"
+              >
+                Run now
+              </button>
+            </div>
+            <div id="ad-schedule-panel">
+              <h3>At the enrollment cutoff.</h3>
+              <p id="ad-schedule-copy" class="ad-muted">
+                TableTalk creates a draft for you to review.
+              </p>
+              <div class="ad-cutoff-card">
+                <span>ENROLLMENT CLOSES</span
+                ><strong id="ad-cutoff-summary"></strong
+                ><small id="ad-match-zone"></small>
+              </div>
+              <p id="ad-room-matching-note" class="ad-help"></p>
+              <button
+                type="button"
+                id="ad-manage-tables"
+                class="ad-button ad-outline ad-full cursor-interaction"
+              >
+                Edit tables &amp; timing <span>→</span></button
+              ><button
+                type="button"
+                id="ad-demo-schedule"
+                class="ad-demo-action cursor-interaction"
+                hidden
+              >
+                Demo: advance to the cutoff →
+              </button>
+            </div>
+            <div id="ad-now-panel" hidden>
+              <h3>Ready when you are.</h3>
+              <p class="ad-muted">
+                Use completed attendee profiles to create a balanced plan within
+                your table capacity.
+              </p>
+              <ul class="ad-rules">
+                <li>Give starred goals extra weight.</li>
+                <li>Mix shared interests and complementary expertise.</li>
+                <li>Keep groups within the seats available.</li>
+              </ul>
+              <button
+                type="button"
+                id="ad-run-now"
+                class="ad-button ad-primary ad-full cursor-interaction"
+              >
+                Create seating plan <span>→</span>
+              </button>
+              <p id="ad-run-help" class="ad-help"></p>
+            </div>
+          </div>
+          <div class="ad-seating-panel">
+            <div class="ad-section-heading">
+              <h3>Seating plan</h3>
+              <span id="ad-seating-state">WAITING TO MATCH</span>
+            </div>
+            <div id="ad-seating-empty" class="ad-empty">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M19 9V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v3" />
+                <path
+                  d="M3 16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5a2 2 0 0 0-4 0v1.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5V11a2 2 0 0 0-4 0z"
+                />
+                <path d="M5 18v2" />
+                <path d="M19 18v2" />
+              </svg>
+              <h4>A seat for every conversation.</h4>
+              <p>
+                Your assigned tables will appear here.<br />You decide when
+                attendees can see them.
+              </p>
+            </div>
+            <div id="ad-plan-grid" class="ad-plan-grid" hidden></div>
+            <div id="ad-publish-area" hidden>
+              <p id="ad-plan-summary" class="ad-help"></p>
+              <button
+                type="button"
+                id="ad-publish"
+                class="ad-button ad-dark ad-full cursor-interaction"
+              >
+                Publish table assignments <span>↗</span>
+              </button>
+              <p class="ad-help">
+                Publishes the table reveal. Send a separate update when you’re
+                ready to announce it.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section
+        id="ad-updates"
+        class="ad-screen"
+        aria-labelledby="ad-updates-title"
+        hidden
+      >
+        <div class="ad-page-heading">
+          <div>
+            <p class="ad-eyebrow">KEEP EVERYONE IN THE LOOP</p>
+            <h2 id="ad-updates-title">The right nudge.</h2>
+            <p class="ad-subtitle">
+              Remind them, reveal their table, or share a change of plan.
+            </p>
+          </div>
+        </div>
+        <div class="ad-updates-layout">
+          <form id="ad-message-form" class="ad-panel" novalidate>
+            <label class="ad-label" for="ad-template"
+              >Start with a message</label
+            ><select id="ad-template">
+              <option value="reminder">Lunch reminder</option>
+              <option value="ready" id="ad-ready-template" disabled>
+                Your table is ready
+              </option>
+              <option value="announcement">Custom announcement</option>
+            </select>
+            <div class="ad-field">
+              <label class="ad-label" for="ad-audience"
+                >Who should receive it?</label
+              ><select id="ad-audience">
+                <option value="all">All registered attendees</option>
+                <option value="matched" id="ad-matched-option" disabled>
+                  Matched attendees
+                </option>
+                <option value="incomplete">Incomplete profiles</option>
+              </select>
+            </div>
+            <div class="ad-channel">
+              <span>DELIVERY</span><strong>Attendee inbox · in-app</strong>
+            </div>
+            <div class="ad-field">
+              <label class="ad-label" for="ad-message-title">Title</label
+              ><input id="ad-message-title" maxlength="80" required />
+            </div>
+            <div class="ad-field">
+              <label class="ad-label" for="ad-message-body">Message</label
+              ><textarea
+                id="ad-message-body"
+                rows="4"
+                maxlength="600"
+                required
+              ></textarea>
+            </div>
+            <div class="ad-two-fields">
+              <div class="ad-field">
+                <label class="ad-label" for="ad-message-when">When?</label
+                ><select id="ad-message-when">
+                  <option value="now">Send now</option>
+                  <option value="schedule">Schedule for later</option>
+                </select>
+              </div>
+              <div class="ad-field" id="ad-message-time-wrap" hidden>
+                <label class="ad-label" for="ad-message-time">Send at</label
+                ><input id="ad-message-time" type="datetime-local" />
+              </div>
+            </div>
+            <p id="ad-message-error" class="ad-error" role="alert" hidden></p>
+            <button
+              type="submit"
+              class="ad-button ad-primary ad-full cursor-interaction"
+            >
+              Review update <span>→</span>
+            </button>
+          </form>
+          <div>
+            <div class="ad-section-heading">
+              <h3>Attendee preview</h3>
+              <span id="ad-preview-audience">34 RECIPIENTS</span>
+            </div>
+            <div class="ad-message-preview">
+              <span class="ad-preview-brand"
+                ><svg
+                  class="ad-logo-mark"
+                  viewBox="8 8 84 84"
+                  aria-hidden="true"
+                >
+                  <circle class="ad-dot" cx="25" cy="25" r="17" />
+                  <circle class="ad-dot" cx="25" cy="75" r="17" />
+                  <circle class="ad-dot" cx="75" cy="75" r="17" />
+                  <g class="ad-bubble">
+                    <circle cx="75" cy="25" r="17" />
+                    <polygon points="58.3,28 72,41.7 55.5,44.5" />
+                  </g></svg
+                ><span>TableTalk</span></span
+              ><span class="ad-preview-kicker">EVENT UPDATE</span>
+              <h3 id="ad-preview-title"></h3>
+              <p id="ad-preview-body"></p>
+              <span class="ad-preview-footer">Open your event →</span>
+            </div>
+            <div id="ad-message-review" class="ad-review" hidden>
+              <h4>Ready to go?</h4>
+              <p id="ad-review-detail"></p>
+              <div class="ad-inline-actions">
+                <button
+                  type="button"
+                  id="ad-review-cancel"
+                  class="ad-button ad-outline cursor-interaction"
+                >
+                  Keep editing</button
+                ><button
+                  type="button"
+                  id="ad-review-send"
+                  class="ad-button ad-dark cursor-interaction"
+                >
+                  Send update
+                </button>
+              </div>
+            </div>
+            <div class="ad-message-history">
+              <div class="ad-section-heading">
+                <h3>Updates</h3>
+                <span>THIS EVENT</span>
+              </div>
+              <p id="ad-history-empty" class="ad-muted">
+                No updates yet. Start with a friendly lunch reminder.
+              </p>
+              <div id="ad-history-list"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <footer class="ad-workspace-footer">
+        <span>DEMO WORKSPACE · SAMPLE ATTENDEES</span
+        ><button type="button" id="ad-load-samples" class="cursor-interaction">
+          Add demo attendees
+        </button>
+      </footer>
+    </main>
+  </div>
+</div>

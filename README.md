@@ -15,9 +15,15 @@ app, and Gitar for reviewing the work as we build.
 - A mobile-first attendee app at `/`: about you (name, title, company), interests,
   and Learn / Share / Connect goals with a starred focus and a question per goal.
   Then a waiting room that checks for your table, the table reveal (a named table,
-  your tablemates, why you're there, topics), "I'm seated" check-in, and
-  conversation starters. You can edit your answers until sign-ups close, and the
-  page picks up where you left off on the same device.
+  your tablemates, why you're there, topics, and "See everyone" for the whole
+  table), "I'm seated" check-in, and conversation cards. You can edit your answers
+  until sign-ups close, and the page picks up where you left off on the same
+  device ("Forget me on this device" in the footer clears that).
+- An organizer workflow prototype at `/organizer-workflow` (also
+  `/event-organizer`): create and edit events, set up numbered tables, seats,
+  and the enrollment cutoff, share a signup QR code, create and publish a seating
+  plan, and draft attendee updates. It runs in the browser on sample data, isn't
+  connected to the API yet, and resets when you reload.
 - The original single-page enrollment app, kept at `/classic`.
 - Twelve fictional attendees to get a demo going quickly.
 - Elasticsearch-powered matching based on shared topics, complementary goals, and
@@ -79,6 +85,7 @@ token for the host view and host API.
 | http://localhost:5173 | The attendee app (also `/user-onboarding`) |
 | http://localhost:5173/host | The host view: setup, runs, review, publish, check-ins |
 | http://localhost:5173/classic | The original single-page attendee app |
+| http://localhost:5173/organizer-workflow | Organizer workflow prototype (sample data) |
 | http://localhost:8000/docs | Conference API documentation |
 | http://localhost:8000/health | API, matching service, and Elasticsearch readiness |
 | http://localhost:9200 | Development Elasticsearch |

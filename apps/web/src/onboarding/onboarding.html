@@ -18,66 +18,9 @@
           </g></svg
         ><span class="ta-wordmark">TableTalk</span></button
       ><span class="ta-event" id="ta-event">LUNCH</span>
-      <div class="ta-nav" id="ta-nav" hidden>
-        <button
-          type="button"
-          id="ta-nav-button"
-          class="ta-nav-button cursor-interaction"
-          aria-label="Menu"
-          aria-expanded="false"
-          aria-controls="ta-nav-menu"
-        >
-          <span></span><span></span><span></span>
-        </button>
-        <div id="ta-nav-menu" class="ta-nav-menu" hidden>
-          <div class="ta-nav-event">
-            <b id="ta-nav-event-name">LUNCH</b
-            ><span id="ta-nav-event-when">12:30–1:15 · Main hall</span>
-          </div>
-          <button
-            type="button"
-            id="ta-nav-edit"
-            class="ta-nav-item cursor-interaction"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path
-                d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"
-              />
-              <path d="m15 5 4 4" /></svg
-            >Edit my details &amp; answers</button
-          ><button
-            type="button"
-            id="ta-nav-restart"
-            class="ta-nav-item cursor-interaction"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-              <path d="M3 3v5h5" /></svg
-            >Forget me on this device
-          </button>
-        </div>
+      <div class="ta-event-time" id="ta-event-time" hidden>
+        <span class="ta-event-name" id="ta-event-time-name">LUNCH</span
+        ><span class="ta-event-hours" id="ta-event-time-hours">12:30–1:15</span>
       </div>
     </header>
     <div id="ta-confetti" aria-hidden="true"></div>
@@ -605,8 +548,7 @@
             <div class="ta-table-tile">
               <span>TABLE</span><strong id="ta-number">08</strong>
               <div class="ta-table-foot">
-                <small id="ta-theme">Small bets.<br />Big ideas.</small
-                ><span class="ta-table-when" id="ta-table-when"
+                <span class="ta-table-when" id="ta-table-when"
                   >12:30–1:15 · Main hall</span
                 >
               </div>
@@ -714,9 +656,34 @@
             early-stage projects.
           </p>
         </div>
-        <div class="ta-tile">
+        <div class="ta-tile ta-who-tile">
           <p class="ta-fit-label">WHO’S THERE</p>
           <div id="ta-people" class="ta-people"></div>
+          <button
+            type="button"
+            id="ta-see-table"
+            class="ta-see-table cursor-interaction"
+            aria-haspopup="dialog"
+            aria-controls="ta-roster"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg
+            ><span>See everyone</span>
+          </button>
         </div>
         <div class="ta-tile">
           <p class="ta-fit-label">TALK ABOUT</p>
@@ -730,6 +697,51 @@
       <button type="button" id="ta-edit" class="ta-back cursor-interaction">
         Edit my answers
       </button>
+      <dialog
+        id="ta-roster"
+        class="ta-roster"
+        aria-labelledby="ta-roster-title"
+      >
+        <div class="ta-roster-inner">
+          <div class="ta-roster-head">
+            <div>
+              <p class="ta-eyebrow" id="ta-roster-eyebrow">
+                TABLE 08 · THE BUILDERS’ TABLE
+              </p>
+              <h3 id="ta-roster-title">Who’s at your table</h3>
+              <p class="ta-roster-sub" id="ta-roster-sub">
+                5 people · 1 open seat
+              </p>
+            </div>
+            <button
+              type="button"
+              id="ta-roster-close"
+              class="ta-roster-close cursor-interaction"
+              aria-label="Close"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M18 6 6 18" />
+                <path d="m6 6 12 12" />
+              </svg>
+            </button>
+          </div>
+          <ul id="ta-roster-list" class="ta-roster-list"></ul>
+          <p class="ta-roster-foot" id="ta-roster-foot">
+            12:30–1:15 · Main hall
+          </p>
+        </div>
+      </dialog>
     </section>
 
     <section id="ta-confirmed" aria-labelledby="ta-confirmed-heading" hidden>
@@ -742,9 +754,17 @@
       </p>
       <div class="ta-bento">
         <div class="ta-tile ta-place-tile">
-          <span class="ta-tile-label">YOUR PLACE AT THE TABLE</span
+          <span class="ta-tile-label">HOW YOUR TABLE SEES YOU</span
+          ><span
+            class="ta-place-avatar"
+            id="ta-ticket-initials"
+            aria-hidden="true"
+            >JD</span
           ><b id="ta-ticket-name">John Doe</b
-          ><small id="ta-ticket-role">Founder · SimpleSend</small>
+          ><span class="ta-place-line" id="ta-ticket-title">Founder</span
+          ><span class="ta-place-line ta-place-company" id="ta-ticket-company"
+            >SimpleSend</span
+          >
         </div>
         <div class="ta-tile ta-number-tile">
           <span class="ta-tile-label">TABLE</span
@@ -777,18 +797,22 @@
       <div class="ta-round">
         <span>THE FIRST ROUND</span><span>One good question.</span>
       </div>
-      <button
-        type="button"
-        id="ta-question"
-        class="ta-question cursor-interaction"
-      >
-        <span class="ta-question-eyebrow"
-          >A LITTLE LESS “SO, WHAT DO YOU DO?”</span
-        ><strong id="ta-question-text">Break the ice.</strong
-        ><span id="ta-question-hint"
-          >Tap to turn over your table’s conversation card ↗</span
+      <div class="ta-question-wrap">
+        <div class="ta-q-burst" id="ta-q-burst" aria-hidden="true"></div>
+        <button
+          type="button"
+          id="ta-question"
+          class="ta-question cursor-interaction"
         >
-      </button>
+          <span class="ta-q-shine" aria-hidden="true"></span
+          ><span class="ta-question-eyebrow"
+            >A LITTLE LESS “SO, WHAT DO YOU DO?”</span
+          ><strong id="ta-question-text">Break the ice.</strong
+          ><span id="ta-question-hint"
+            >Tap to turn over your table’s conversation card ↗</span
+          >
+        </button>
+      </div>
       <div id="ta-question-actions" hidden>
         <button
           type="button"
@@ -808,7 +832,16 @@
 
     <footer class="ta-footer">
       TABLETALK · MATCHED WITH ELASTICSEARCH ·
-      <a href="/host" class="ta-footer-link">HOST</a>
+      <a href="/host" class="ta-footer-link">HOST</a> ·
+      <a href="/organizer-workflow" class="ta-footer-link">ORGANIZER</a>
+      <button
+        type="button"
+        id="ta-forget"
+        class="ta-footer-link ta-forget cursor-interaction"
+        hidden
+      >
+        FORGET ME ON THIS DEVICE
+      </button>
     </footer>
   </main>
 </div>
