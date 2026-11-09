@@ -5,19 +5,15 @@ from math import ceil
 from typing import Any
 
 from opentelemetry import trace
-from tabletalk_shared.models import GROUP_SIZE, Attendee, LunchGroup, MatchPlan, MatchReason
+from tabletalk_shared.models import GROUP_SIZE, Attendee, Goal, LunchGroup, MatchPlan, MatchReason
 from tabletalk_shared.storage import conference_filter
 
 CandidateSearch = Callable[[list[Attendee], set[str]], Awaitable[Attendee]]
 tracer = trace.get_tracer(__name__)
-COMPLEMENTARY_GOALS = {
-    "Find a cofounder": "Find a cofounder",
-    "Hire": "Get hired",
-    "Get hired": "Hire",
-    "Learn": "Learn",
-    "Sell / partner": "Invest",
-    "Invest": "Sell / partner",
-    "Meet peers": "Meet peers",
+COMPLEMENTARY_GOALS: dict[Goal, Goal] = {
+    "Learn": "Share something I've learned",
+    "Share something I've learned": "Learn",
+    "Meet connections": "Meet connections",
 }
 STOP_WORDS = {
     "a",

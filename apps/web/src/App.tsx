@@ -1,9 +1,11 @@
 import { useEffect, useState, type FormEvent } from "react";
 import {
+  goalOptions,
   request,
   type Attendee,
   type ConferenceState,
   type Enrollment,
+  type Goal,
   type LunchGroup,
 } from "./api";
 
@@ -14,16 +16,6 @@ const emptyForm = {
   can_help: "",
   want_to_learn: "",
 };
-const goalOptions = [
-  "Find a cofounder",
-  "Hire",
-  "Get hired",
-  "Learn",
-  "Sell / partner",
-  "Invest",
-  "Meet peers",
-];
-
 function TableCard({
   group,
   attendeeId,
@@ -79,7 +71,7 @@ function TableCard({
 export default function App() {
   const [conference, setConference] = useState<ConferenceState | null>(null);
   const [form, setForm] = useState(emptyForm);
-  const [goals, setGoals] = useState<string[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
   const [attendeeId, setAttendeeId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -124,6 +116,10 @@ export default function App() {
   function enroll(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!conference) return;
+    if (goals.length === 0) {
+      setError("Please select at least one lunch goal.");
+      return;
+    }
     const enrollment: Enrollment = {
       ...form,
       interests: form.interests
@@ -179,36 +175,6 @@ export default function App() {
               <span>{conference?.lunch_label ?? "Conference lunch"}</span>
               <span>Up to {conference?.group_size ?? 4} people per table</span>
               <span>Shared interests. New perspectives.</span>
-            </div>
-            <div className="goal-field">
-              <span id="goals-label" className="field-label">
-                What are you here for?{" "}
-                <span className="field-hint">Pick up to 3.</span>
-              </span>
-              <div
-                className="goal-options"
-                role="group"
-                aria-labelledby="goals-label"
-              >
-                {goalOptions.map((goal) => (
-                  <button
-                    key={goal}
-                    type="button"
-                    className="goal-chip"
-                    aria-pressed={goals.includes(goal)}
-                    disabled={!goals.includes(goal) && goals.length >= 3}
-                    onClick={() =>
-                      setGoals(
-                        goals.includes(goal)
-                          ? goals.filter((value) => value !== goal)
-                          : [...goals, goal],
-                      )
-                    }
-                  >
-                    {goal}
-                  </button>
-                ))}
-              </div>
             </div>
           </div>
           <div className="table-illustration" aria-hidden="true">
@@ -304,6 +270,37 @@ export default function App() {
                             placeholder="Platform engineer, curious human..."
                           />
                         </label>
+                      </div>
+                      <div className="goal-field">
+                        <span id="goals-label" className="field-label">
+                          What brings you to the lunch table?{" "}
+                          <span className="field-hint">
+                            Select one or more.
+                          </span>
+                        </span>
+                        <div
+                          className="goal-options"
+                          role="group"
+                          aria-labelledby="goals-label"
+                        >
+                          {goalOptions.map(({ value, label }) => (
+                            <button
+                              key={value}
+                              type="button"
+                              className="goal-chip"
+                              aria-pressed={goals.includes(value)}
+                              onClick={() =>
+                                setGoals(
+                                  goals.includes(value)
+                                    ? goals.filter((goal) => goal !== value)
+                                    : [...goals, value],
+                                )
+                              }
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                       <label>
                         What could you talk about for hours?

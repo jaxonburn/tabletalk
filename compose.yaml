@@ -10,6 +10,7 @@ x-python: &python
     OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
     OTEL_SERVICE_NAMESPACE: ${OTEL_SERVICE_NAMESPACE:-tabletalk}
     OTEL_PYTHON_INSTRUMENTATION_ELASTICSEARCH_CAPTURE_SEARCH_QUERY: omit
+    PYTHONPYCACHEPREFIX: /tmp/tabletalk-pycache
     WATCHFILES_FORCE_POLLING: "true"
   volumes:
     - ./services:/app/services

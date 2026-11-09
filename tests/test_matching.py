@@ -2,7 +2,7 @@ import pytest
 from pydantic import ValidationError
 from tabletalk_api.seed import seed_attendees
 from tabletalk_matcher.matching import build_plan, explain_pair, group_sizes
-from tabletalk_shared.models import Attendee, Enrollment
+from tabletalk_shared.models import Attendee, Enrollment, Goal, MatchPlan
 
 
 @pytest.mark.parametrize("count", [2, 4, 5, 9, 13, 100])
@@ -50,19 +50,19 @@ async def test_search_cannot_assign_someone_outside_the_snapshot() -> None:
 
 def test_explanations_include_real_shared_topics_and_complementary_goals() -> None:
     left, right = seed_attendees()[:2]
-    left.goals = ["Hire"]
-    right.goals = ["Get hired"]
+    left.goals = ["Learn"]
+    right.goals = ["Share something I've learned"]
     reason = explain_pair(left, right)
     assert reason is not None
     assert "kubernetes" in reason.text
-    assert "Hire / Get hired" in reason.text
+    assert "Learn / Share something I've learned" in reason.text
     assert "observability" in reason.text
 
 
 def test_unrelated_profiles_do_not_get_invented_explanations() -> None:
     left, right = seed_attendees()[0], seed_attendees()[8]
-    left.goals = []
-    right.goals = []
+    left.goals = ["Learn"]
+    right.goals = ["Meet connections"]
     assert explain_pair(left, right) is None
 
 
@@ -72,13 +72,93 @@ def test_enrollment_normalizes_and_deduplicates_interests() -> None:
     assert Enrollment.model_validate(data).interests == ["kubernetes", "python"]
 
 
+def test_stored_attendees_and_plans_migrate_legacy_goals() -> None:
+    stored_attendee = seed_attendees()[0].model_dump(exclude={"focus_goal", "goal_answers"})
+    stored_attendee["goals"] = ["Meet peers"]
+
+    attendee = Attendee.model_validate(stored_attendee)
+    assert attendee.goals == ["Meet connections"]
+
+    plan = MatchPlan.model_validate(
+        {
+            "groups": [{"id": "group-1", "members": [stored_attendee], "reasons": []}],
+            "generated_at": "2026-11-01T12:00:00Z",
+            "attendee_count": 1,
+        }
+    )
+    assert plan.groups[0].members[0].goals == ["Meet connections"]
+
+
+@pytest.mark.parametrize(
+    "goals",
+    [
+        ["Learn"],
+        ["Learn", "Share something I've learned"],
+        ["Learn", "Share something I've learned", "Meet connections"],
+    ],
+)
+def test_enrollment_accepts_single_and_multiple_lunch_goals(goals: list[Goal]) -> None:
+    data = seed_attendees()[0].model_dump(
+        exclude={"id", "conference_id", "focus_goal", "goal_answers"}
+    )
+    assert Enrollment.model_validate(data | {"goals": goals}).goals == goals
+
+
+def test_seed_profiles_include_single_multiple_and_all_lunch_goals() -> None:
+    profiles = seed_attendees()
+    assert {len(profile.goals) for profile in profiles} == {1, 2, 3}
+    assert any(profile.goals == ["Learn"] for profile in profiles)
+    assert any(profile.goals == ["Share something I've learned"] for profile in profiles)
+    assert any(profile.goals == ["Meet connections"] for profile in profiles)
+
+
+def test_seed_profiles_answer_every_selected_goal_and_choose_a_focus() -> None:
+    for profile in seed_attendees():
+        assert profile.focus_goal in profile.goals
+        assert set(profile.goal_answers) == set(profile.goals)
+        assert all(answer.strip() for answer in profile.goal_answers.values())
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"focus_goal": "Meet connections"},
+        {"goal_answers": {}},
+        {"goal_answers": {"Meet connections": "I'd enjoy talking about Kubernetes."}},
+        {"focus_goal": None},
+    ],
+)
+def test_goal_responses_require_a_selected_focus_and_an_answer_for_each_goal(
+    changes: dict[str, object],
+) -> None:
+    data = seed_attendees()[0].model_dump(exclude={"id", "conference_id"})
+    with pytest.raises(ValidationError):
+        Enrollment.model_validate(data | changes)
+
+
+def test_existing_frontend_enrollment_does_not_require_step_two_yet() -> None:
+    data = seed_attendees()[0].model_dump(
+        exclude={"id", "conference_id", "focus_goal", "goal_answers"}
+    )
+    enrollment = Enrollment.model_validate(data)
+    assert enrollment.focus_goal is None
+    assert enrollment.goal_answers == {}
+
+
+def test_enrollment_requires_a_lunch_goal() -> None:
+    data = seed_attendees()[0].model_dump(exclude={"id", "conference_id", "goals"})
+    with pytest.raises(ValidationError):
+        Enrollment.model_validate(data)
+
+
 @pytest.mark.parametrize(
     "changes",
     [
         {"name": "  "},
         {"interests": []},
         {"interests": ["a" * 51]},
-        {"goals": ["Hire", "Get hired", "Learn", "Invest"]},
+        {"goals": []},
+        {"goals": ["Hire"]},
         {"goals": ["Unknown goal"]},
         {"lunch_slot": "another-conference-lunch"},
         {"can_help": "x" * 501},

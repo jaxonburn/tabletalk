@@ -3,8 +3,9 @@
 ## Purpose and direction
 
 TableTalk helps tech-conference attendees meet during lunch. Attendees enroll
-with their name, role, up to three goals, interests, what they can offer, and what
-they're looking for. An organizer creates one assigned lunch group per attendee.
+with their name, role, interests, what they can offer, and what they're looking
+for. They select one or more lunch goals: `Learn`, `Share something I've learned`,
+and `Meet connections`. An organizer creates one assigned lunch group per attendee.
 Future versions may let attendees choose among suggested connections.
 
 This is a Cloud Native Hackathon project. Prioritize a working, understandable
@@ -39,6 +40,12 @@ Conference and lunch slot are mandatory Elasticsearch filters. Candidate queries
 exclude assigned attendees and restrict results to the enrollment snapshot.
 Ranking boosts exact and analyzed topic overlap, complementary goals, and
 offer/need text through BM25. Ties resolve by stable attendee ID.
+Learning and sharing are complementary goals; meeting connections matches others
+who want to make connections. Seed profiles include single and multiple selections.
+Seed profiles also include a `focus_goal` and a `goal_answers` entry for every selected
+goal, with prompt questions and example hints defined in `services/api/src/tabletalk_api/seed.py`.
+These fields are optional for the existing frontend; the matcher still uses the
+original goals and offer/need fields rather than scoring the new answers or focus.
 
 The greedy allocator starts from the lowest remaining ID and grows each table
 using relevance against its current members. Group sizes are balanced to avoid

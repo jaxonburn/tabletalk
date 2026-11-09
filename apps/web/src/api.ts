@@ -1,8 +1,19 @@
+export const goalOptions = [
+  { value: "Learn", label: "I want to learn" },
+  {
+    value: "Share something I've learned",
+    label: "I want to share something I've learned",
+  },
+  { value: "Meet connections", label: "I just want to make connections" },
+] as const;
+
+export type Goal = (typeof goalOptions)[number]["value"];
+
 export interface Enrollment {
   name: string;
   role: string;
   interests: string[];
-  goals: string[];
+  goals: Goal[];
   can_help: string;
   want_to_learn: string;
   lunch_slot: string;
@@ -59,7 +70,7 @@ export async function request<T>(path: string, body?: unknown): Promise<T> {
       typeof detail === "string"
         ? detail
         : response.status === 422
-          ? "Please check your answers. Each topic must be 1–50 characters, with at most 8 topics."
+          ? "Please check your answers. Select at least one lunch goal and up to 8 topics (1–50 characters each)."
           : `The request failed (${response.status}). Please try again.`,
     );
   }

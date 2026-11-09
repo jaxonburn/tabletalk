@@ -38,6 +38,16 @@ async def ensure_indices(client: AsyncElasticsearch) -> None:
                 "name": {"type": "keyword", "index": False},
                 "role": {"type": "text"},
                 "goals": {"type": "keyword"},
+                "focus_goal": {"type": "keyword"},
+                "goal_answers": {
+                    "type": "object",
+                    "dynamic": "strict",
+                    "properties": {
+                        "Learn": {"type": "text", "analyzer": "english"},
+                        "Share something I've learned": {"type": "text", "analyzer": "english"},
+                        "Meet connections": {"type": "text", "analyzer": "english"},
+                    },
+                },
                 "interests": {"type": "text", "fields": {"exact": {"type": "keyword"}}},
                 "can_help": {"type": "text", "analyzer": "english"},
                 "want_to_learn": {"type": "text", "analyzer": "english"},
@@ -53,11 +63,12 @@ async def ensure_indices(client: AsyncElasticsearch) -> None:
                 settings={"number_of_shards": 1, "number_of_replicas": 0},
             )
         except BadRequestError as error:
-            # Only the concurrent startup/create race is safe to ignore.
+            # Add fields to existing indexes without resetting saved profiles or plans.
             if (
                 isinstance(error.body, dict)
                 and error.body.get("error", {}).get("type") == "resource_already_exists_exception"
             ):
+                await client.indices.put_mapping(index=index, properties=mapping["properties"])
                 continue
             raise
 
