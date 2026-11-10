@@ -223,12 +223,17 @@ export function initOnboarding(root: HTMLElement): () => void {
   };
   let conference: ConferenceState | null = null;
   let me: MyStatus | null = null;
+  let preview: MyStatus | null = null;
   let token = readToken();
   let current: Screen = "about";
   let questions: string[] = [];
   let questionIndex = 0;
   let questionRevealed = false;
   let busy = false;
+
+  function displayedStatus() {
+    return preview ?? me;
+  }
 
   function el<K extends keyof HTMLElementTagNameMap>(
     tag: K,
@@ -267,6 +272,7 @@ export function initOnboarding(root: HTMLElement): () => void {
 
   /** Answers can change only while sign-ups are open. */
   function editable() {
+    if (preview) return false;
     const status = me?.status ?? conference?.status ?? "open";
     return status === "open";
   }
@@ -280,6 +286,7 @@ export function initOnboarding(root: HTMLElement): () => void {
 
   function show(name: Screen, { focus = true, back = false } = {}) {
     current = name;
+    q("preview-notice").hidden = !preview;
     setNav(name);
     updateBrand(name);
     SCREENS.forEach((s) => {
@@ -806,7 +813,7 @@ export function initOnboarding(root: HTMLElement): () => void {
   // Event details
 
   function when() {
-    const lunch = me?.assignment;
+    const lunch = displayedStatus()?.assignment;
     return [
       lunch?.lunch_time || conference?.lunch_time,
       lunch?.location || conference?.location,
@@ -817,7 +824,8 @@ export function initOnboarding(root: HTMLElement): () => void {
 
   function applyEventDetails() {
     const name = conference?.name ?? "TableTalk";
-    const hours = me?.assignment?.lunch_time || conference?.lunch_time || "";
+    const hours =
+      displayedStatus()?.assignment?.lunch_time || conference?.lunch_time || "";
     q("event").textContent = `${name} / lunch`.toUpperCase();
     q("event-time-name").textContent = `${name} / lunch`.toUpperCase();
     q("event-time-hours").textContent = hours;
@@ -858,11 +866,12 @@ export function initOnboarding(root: HTMLElement): () => void {
 
   function renderWaiting() {
     applyEventDetails();
-    const assignment = me?.assignment;
+    const assignment = displayedStatus()?.assignment;
     q("wait-initial").hidden = Boolean(assignment);
     q("wait-ready").hidden = !assignment;
     q("demo-control").hidden = Boolean(assignment);
     q("wait-edit").hidden = !editable();
+    button("simulate").disabled = !me || Boolean(assignment);
     button("reveal-table").disabled = false;
     if (assignment) {
       const first = me?.attendee.name.split(" ")[0] ?? "";
@@ -897,6 +906,7 @@ export function initOnboarding(root: HTMLElement): () => void {
     clearToken();
     token = "";
     me = null;
+    preview = null;
   }
 
   /** Fetch my enrollment. Returns null (and forgets the token) if it's gone. */
@@ -929,6 +939,7 @@ export function initOnboarding(root: HTMLElement): () => void {
   }
 
   async function checkNow(manual = false) {
+    if (preview) return;
     if (manual) q("check-status").textContent = "CHECKING…";
     const hadTable = Boolean(me?.assignment);
     try {
@@ -938,7 +949,7 @@ export function initOnboarding(root: HTMLElement): () => void {
         q("check-status").textContent = "COULDN’T CHECK · TRY AGAIN";
       return;
     }
-    if (signal.aborted || current !== "waiting") return;
+    if (signal.aborted || preview || current !== "waiting") return;
     renderWaiting();
     schedulePoll();
     if (me?.assignment) {
@@ -953,10 +964,63 @@ export function initOnboarding(root: HTMLElement): () => void {
   }
   on(q("check-now"), "click", () => void checkNow(true));
 
+  on(q("simulate"), "click", () => {
+    if (!me || me.assignment || preview) return;
+    const topics = me.attendee.interests.slice(0, 3);
+    preview = {
+      ...me,
+      checked_in_at: null,
+      assignment: {
+        table_number: 1,
+        table_name: "The demo table",
+        tablemates: [
+          {
+            first_name: "Alex",
+            role: "Platform engineer",
+            company: "Fictional demo company",
+            interests: topics,
+          },
+          {
+            first_name: "Sam",
+            role: "Developer advocate",
+            company: "Fictional demo company",
+            interests: topics,
+          },
+          {
+            first_name: "Jordan",
+            role: "Software engineer",
+            company: "Fictional demo company",
+            interests: topics,
+          },
+        ],
+        summary:
+          "This is a sample table reveal with fictional people, not a result from the live matching engine.",
+        starters: FALLBACK_QUESTIONS,
+        table_summary: "A demo table for sharing ideas and meeting new people.",
+        table_starters: [],
+        narrative_source: "template",
+        topics,
+        seats: 4,
+        lunch_time: conference?.lunch_time,
+        location: conference?.location,
+      },
+    };
+    startReveal();
+  });
+
+  on(q("preview-exit"), "click", () => {
+    window.clearTimeout(matchTimer);
+    if (roster.open) closeRoster();
+    preview = null;
+    renderWaiting();
+    show("waiting", { back: true });
+    void checkNow(true);
+  });
+
   function schedulePoll() {
     window.clearInterval(pollTimer);
     pollTimer = undefined;
-    if (!token || !me) return;
+    if (!token || !me || preview) return;
     if (current === "waiting" && !me.assignment) {
       pollTimer = window.setInterval(() => void checkNow(), POLL_MS);
     } else if (!ONBOARDING.includes(current)) {
@@ -971,7 +1035,8 @@ export function initOnboarding(root: HTMLElement): () => void {
   function renderInbox() {
     const inbox = q("inbox");
     const items = (me?.announcements ?? []).slice(0, INBOX_LIMIT);
-    inbox.hidden = !items.length || ONBOARDING.includes(current);
+    inbox.hidden =
+      Boolean(preview) || !items.length || ONBOARDING.includes(current);
     inbox.replaceChildren(
       ...items.map((a) => {
         const item = el("article", { class: "ta-inbox-item" });
@@ -1081,8 +1146,9 @@ export function initOnboarding(root: HTMLElement): () => void {
   }
 
   function revealTable() {
-    if (!me?.assignment) return;
-    renderAssigned(me.assignment);
+    const assignment = displayedStatus()?.assignment;
+    if (!assignment) return;
+    renderAssigned(assignment);
     show("assigned");
   }
 
@@ -1173,8 +1239,9 @@ export function initOnboarding(root: HTMLElement): () => void {
   }
 
   on(q("see-table"), "click", () => {
-    if (!me?.assignment) return;
-    renderRoster(me, me.assignment);
+    const status = displayedStatus();
+    if (!status?.assignment) return;
+    renderRoster(status, status.assignment);
     if (typeof roster.showModal === "function") roster.showModal();
     else roster.setAttribute("open", "");
   });
@@ -1185,13 +1252,14 @@ export function initOnboarding(root: HTMLElement): () => void {
   });
   on(roster, "close", () => q("see-table").focus());
 
-  on(q("reveal-table"), "click", () => {
-    if (!me?.assignment) return;
+  function startReveal() {
+    if (!displayedStatus()?.assignment) return;
     button("reveal-table").disabled = true;
     show("matching");
     window.clearTimeout(matchTimer);
     matchTimer = window.setTimeout(revealTable, reduced() ? 0 : 800);
-  });
+  }
+  on(q("reveal-table"), "click", startReveal);
 
   // Check-in, ticket, and icebreakers
 
@@ -1234,8 +1302,9 @@ export function initOnboarding(root: HTMLElement): () => void {
   }
 
   function openTicket() {
-    const attendee = me?.attendee;
-    const a = me?.assignment;
+    const status = displayedStatus();
+    const attendee = status?.attendee;
+    const a = status?.assignment;
     if (!attendee || !a) return;
     const [first, ...rest] = attendee.name.split(" ");
     const last = rest.length ? rest[rest.length - 1] : "";
@@ -1268,7 +1337,7 @@ export function initOnboarding(root: HTMLElement): () => void {
   }
 
   function renderSeated() {
-    const seated = Boolean(me?.checked_in_at);
+    const seated = Boolean(displayedStatus()?.checked_in_at);
     q("seated").hidden = seated;
     q("seated-done").hidden = !seated;
     const seat = you();
@@ -1282,7 +1351,14 @@ export function initOnboarding(root: HTMLElement): () => void {
   }
 
   on(q("seated"), "click", async () => {
-    if (busy || !me?.assignment || !token) return;
+    if (busy || !displayedStatus()?.assignment || !token) return;
+    if (preview) {
+      preview.checked_in_at = new Date().toISOString();
+      renderSeated();
+      openTicket();
+      confetti();
+      return;
+    }
     setBusy("seated", true);
     try {
       const status = await request<MyStatus>(
@@ -1304,7 +1380,7 @@ export function initOnboarding(root: HTMLElement): () => void {
     }
   });
   on(q("seated-done"), "click", () => {
-    if (me?.checked_in_at) openTicket();
+    if (displayedStatus()?.checked_in_at) openTicket();
   });
 
   // The conversation card: flip it over, then deal another
