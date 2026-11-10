@@ -23,6 +23,15 @@
         ><span class="ta-event-hours" id="ta-event-time-hours">12:30–1:15</span>
       </div>
     </header>
+    <aside id="ta-preview-notice" class="ta-demo-control" hidden>
+      <p class="ta-note" role="status">
+        Demo preview with fictional tablemates. No real matches or check-ins are
+        saved, and enrollment stays open.
+      </p>
+      <button type="button" id="ta-preview-exit" class="cursor-interaction">
+        Return to live waiting room
+      </button>
+    </aside>
     <div id="ta-confetti" aria-hidden="true"></div>
     <section
       id="ta-inbox"
@@ -517,6 +526,13 @@
             <path d="m12 5 7 7-7 7" />
           </svg>
         </button>
+        <button type="button" id="ta-simulate" class="cursor-interaction">
+          Simulate matches
+        </button>
+        <p class="ta-note">
+          Try a visitor-only demo with fictional tablemates. This does not
+          publish matches or close enrollment.
+        </p>
       </div>
     </section>
 

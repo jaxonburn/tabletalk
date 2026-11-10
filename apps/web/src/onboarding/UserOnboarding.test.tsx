@@ -429,6 +429,97 @@ describe("attendee onboarding", () => {
     expect(document.activeElement).toBe(byId("see-table"));
   });
 
+  it("previews fictional matches and check-in without changing live data", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    storage.setItem(ATTENDEE_TOKEN_KEY, "saved-token");
+    route("GET", "/api/me", () => json(status()));
+    await mount();
+    await screen.findByRole("heading", { name: /is on its way/ });
+    const checks = calls.filter((c) => c.key === "GET /api/me").length;
+
+    click("Simulate matches");
+    await screen.findByRole("heading", { name: /Found for you/ });
+    expect(byId("preview-notice").hidden).toBe(false);
+    expect(
+      screen.getByText(/Demo preview with fictional tablemates/),
+    ).toBeTruthy();
+    expect(screen.getByText("THE DEMO TABLE")).toBeTruthy();
+    expect(byId("tags").textContent).toContain("kubernetes");
+    expect(byId("edit").hidden).toBe(true);
+    vi.advanceTimersByTime(POLL_MS * 5);
+    fireEvent(document, new Event("visibilitychange"));
+    expect(calls.filter((c) => c.key === "GET /api/me").length).toBe(checks);
+
+    click(/See everyone/);
+    expect(byId("roster-list").textContent).toContain("Ada Lovelace");
+    expect(byId("roster-list").textContent).toContain("Alex");
+    click("Close");
+    click(/I’m seated at Table 01/);
+    await screen.findByRole("heading", { name: /You’re in/ });
+    click(/Break the ice/);
+    expect(
+      screen.getByText(
+        "What’s one idea from today’s talks you want to try back at work?",
+      ),
+    ).toBeTruthy();
+    expect(calls.every((c) => c.key.startsWith("GET "))).toBe(true);
+    expect(storage.getItem(ATTENDEE_TOKEN_KEY)).toBe("saved-token");
+
+    click("Return to live waiting room");
+    await waitFor(() =>
+      expect(
+        calls.filter((c) => c.key === "GET /api/me").length,
+      ).toBeGreaterThan(checks),
+    );
+    expect(heading(/is on its way/)).toBeTruthy();
+    expect(byId("preview-notice").hidden).toBe(true);
+    expect(byId("wait-edit").hidden).toBe(false);
+    expect(
+      screen.getByRole("button", { name: "Simulate matches" }),
+    ).toBeTruthy();
+    const resumedChecks = calls.filter((c) => c.key === "GET /api/me").length;
+    vi.advanceTimersByTime(POLL_MS);
+    await waitFor(() =>
+      expect(
+        calls.filter((c) => c.key === "GET /api/me").length,
+      ).toBeGreaterThan(resumedChecks),
+    );
+  });
+
+  it("returns from the demo to a real assignment published in the meantime", async () => {
+    storage.setItem(ATTENDEE_TOKEN_KEY, "saved-token");
+    let published = false;
+    route("GET", "/api/me", () =>
+      json(published ? status({ assignment }, "published") : status()),
+    );
+    route("POST", "/api/me/check-in", () =>
+      json(
+        status(
+          { assignment, checked_in_at: "2026-11-10T19:31:00Z" },
+          "published",
+        ),
+      ),
+    );
+    await mount();
+    await screen.findByRole("heading", { name: /is on its way/ });
+    click("Simulate matches");
+    await screen.findByRole("heading", { name: /Found for you/ });
+    published = true;
+    click("Return to live waiting room");
+    await screen.findByText("The wait is over, Ada. We found your table.");
+    expect(
+      screen.queryByRole("button", { name: "Simulate matches" }),
+    ).toBeNull();
+    click(/Meet my table/);
+    await screen.findByText("THE BUILDERS' TABLE");
+    expect(byId("preview-notice").hidden).toBe(true);
+    click(/I’m seated at Table 08/);
+    await screen.findByRole("heading", { name: /You’re in/ });
+    expect(calls.filter((c) => c.key === "POST /api/me/check-in")).toHaveLength(
+      1,
+    );
+  });
+
   it("forgets this device from the footer", async () => {
     storage.setItem(ATTENDEE_TOKEN_KEY, "saved-token");
     route("GET", "/api/me", () => json(status()));
